@@ -50,7 +50,7 @@ namespace AsynchronousServer
                     this._connectedClients[clientId] = connectedClient;
                     this.Connected?.Invoke(this, new StartServerEventArgs(pipeServer, this._connectedClients, clientId, this._pipeName));
 
-                    _ = HandleClientCommunicationAsync(connectedClient, this._chunkSize);
+                    _ = HandleClientCommunicationAsync(connectedClient, this._connectedClients, this._cancellationTokenSource, this._pipeName, this._chunkSize);
                 }
                 finally
                 {
@@ -60,7 +60,7 @@ namespace AsynchronousServer
             }
         }
 
-        private async Task HandleClientCommunicationAsync(ConnectedClient client, int chunkSize)
+        private async Task HandleClientCommunicationAsync(ConnectedClient client, ConcurrentDictionary<Guid, ConnectedClient> connectedClients, CancellationTokenSource cancellationTokenSource, string pipeName, int chunkSize)
         {
             try
             {
@@ -71,7 +71,7 @@ namespace AsynchronousServer
                     var data = await client.PipeStream.ReceiveInChunksAsync(chunkSize);
                     if (data is null || data.Length == 0) continue;
 
-                    this.ReceiveData?.Invoke(this, new ClientCommunicationEventArgs(client, data, this._pipeName, this._cancellationTokenSource, this._connectedClients));
+                    this.ReceiveData?.Invoke(this, new ClientCommunicationEventArgs(client, data, pipeName, cancellationTokenSource, connectedClients));
                 }
             }
             finally
