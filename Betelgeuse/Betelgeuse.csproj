@@ -11,4 +11,8 @@
     <Folder Include="DataType\" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\AsynchronousServer\AsynchronousServer.csproj" />
+  </ItemGroup>
+
 </Project>

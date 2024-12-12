@@ -6,6 +6,9 @@ namespace AsynchronousServer.StaticMethod
     {
         public async static Task SendInChunksAsync(this Stream stream, byte[] data, int chunkSize)
         {
+            ArgumentNullException.ThrowIfNull(stream);
+            ArgumentNullException.ThrowIfNull(data);
+
             // Send data size first
             var dataSize = BitConverter.GetBytes(data.Length);
             await stream.WriteAsync(dataSize, 0, dataSize.Length);
@@ -20,6 +23,8 @@ namespace AsynchronousServer.StaticMethod
 
         public async static Task<byte[]> ReceiveInChunksAsync(this Stream stream, int chunkSize)
         {
+            ArgumentNullException.ThrowIfNull(stream);
+
             // Read data size
             var dataSizeBuffer = new byte[sizeof(int)];
             _ = await stream.ReadAsync(dataSizeBuffer, 0, dataSizeBuffer.Length);
