@@ -1,6 +1,7 @@
 ﻿using System.Collections.Concurrent;
 using System.IO.Pipes;
 using AsynchronousServer.DataType;
+using AsynchronousServer.StaticMethod;
 
 namespace AsynchronousServer
 {
@@ -35,20 +36,31 @@ namespace AsynchronousServer
                     maxNumberOfServerInstances,
                     PipeTransmissionMode.Byte,
                     PipeOptions.Asynchronous);
+                try
+                {
+                    await pipeServer.WaitForConnectionAsync(this._cancellationTokenSource.Token);
 
-                await pipeServer.WaitForConnectionAsync(this._cancellationTokenSource.Token);
+                    var clientId = Guid.NewGuid();
+                    var connectedClient = new ConnectedClient(clientId, pipeServer);
+                    this._connectedClients[clientId] = connectedClient;
+                    this.Connected?.Invoke(this, new StartServerEventArgs(pipeServer, this._connectedClients, clientId, this._pipeName));
 
-                var clientId = Guid.NewGuid();
-                this._connectedClients[clientId] = new ConnectedClient(clientId, pipeServer);
-                this.Connected?.Invoke(this, new StartServerEventArgs(pipeServer, this._connectedClients, clientId, this._pipeName));
-
-
+                    _ = HandleClientCommunicationAsync(connectedClient);
+                }
+                finally
+                {
+                    pipeServer.Close();
+                    pipeServer.Dispose();
+                }
             }
         }
 
-        private async Task HandleClientCommunicationAsync (ConnectedClient client)
+        private async Task HandleClientCommunicationAsync(ConnectedClient client)
         {
-
+            while (client.PipeStream.IsConnected)
+            {
+                await Network.ReceiveInChunksAsync(client.PipeStream as Stream, 10);
+            }
         }
     }
 }

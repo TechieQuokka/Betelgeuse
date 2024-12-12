@@ -4,7 +4,7 @@ namespace AsynchronousServer.StaticMethod
 {
     public static class Network
     {
-        public async static Task SendInChunksAsync(this NetworkStream stream, byte[] data, int chunkSize)
+        public async static Task SendInChunksAsync(this Stream stream, byte[] data, int chunkSize)
         {
             // Send data size first
             var dataSize = BitConverter.GetBytes(data.Length);
@@ -18,7 +18,7 @@ namespace AsynchronousServer.StaticMethod
             return;
         }
 
-        public async static Task<byte[]> ReceiveInChunksAsync(this NetworkStream stream, int chunkSize)
+        public async static Task<byte[]> ReceiveInChunksAsync(this Stream stream, int chunkSize)
         {
             // Read data size
             var dataSizeBuffer = new byte[sizeof(int)];
