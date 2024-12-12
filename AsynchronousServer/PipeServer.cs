@@ -95,7 +95,6 @@ namespace AsynchronousServer
 
         private void DisconnectAllEvents()
         {
-            // 모든 핸들러 해제
             if (this.Enter != null)
             {
                 foreach (var handler in this.Enter.GetInvocationList())
