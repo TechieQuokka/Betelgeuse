@@ -9,6 +9,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AsynchronousServer", "Async
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Standard", "Standard\Standard.csproj", "{E2A31692-CACC-40E1-BCA3-63217C301A7B}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Security", "Security\Security.csproj", "{EEFB9190-C434-4BD0-BA1F-3443F9DBF6F3}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -27,6 +29,10 @@ Global
 		{E2A31692-CACC-40E1-BCA3-63217C301A7B}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{E2A31692-CACC-40E1-BCA3-63217C301A7B}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{E2A31692-CACC-40E1-BCA3-63217C301A7B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{EEFB9190-C434-4BD0-BA1F-3443F9DBF6F3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{EEFB9190-C434-4BD0-BA1F-3443F9DBF6F3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{EEFB9190-C434-4BD0-BA1F-3443F9DBF6F3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EEFB9190-C434-4BD0-BA1F-3443F9DBF6F3}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

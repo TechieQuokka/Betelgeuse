@@ -1,4 +1,6 @@
-﻿using System.Net.Sockets;
+﻿using System.Diagnostics;
+using Standard.DataType;
+using Standard.Static;
 
 namespace AsynchronousServer.StaticMethod
 {
@@ -10,8 +12,8 @@ namespace AsynchronousServer.StaticMethod
             ArgumentNullException.ThrowIfNull(data);
 
             // Send data size first
-            var dataSize = BitConverter.GetBytes(data.Length);
-            await stream.WriteAsync(dataSize, 0, dataSize.Length);
+            var dataSizeBuffer = BitConverter.GetBytes(data.Length);
+            await stream.WriteAsync(dataSizeBuffer, 0, dataSizeBuffer.Length);
 
             for (int index = 0; index < data.Length; index += chunkSize)
             {

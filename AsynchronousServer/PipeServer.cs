@@ -1,7 +1,9 @@
 ﻿using System.Collections.Concurrent;
 using System.IO.Pipes;
+using System.Runtime.CompilerServices;
 using AsynchronousServer.DataType;
 using AsynchronousServer.StaticMethod;
+using static Standard.Static.Free;
 
 namespace AsynchronousServer
 {
@@ -45,22 +47,23 @@ namespace AsynchronousServer
                     maxNumberOfServerInstances,
                     PipeTransmissionMode.Byte,
                     PipeOptions.Asynchronous);
-                try
-                {
-                    await pipeServer.WaitForConnectionAsync(this._cancellationTokenSource.Token);
 
-                    var clientId = Guid.NewGuid();
-                    var connectedClient = new ConnectedClient(clientId, pipeServer);
-                    this._connectedClients[clientId] = connectedClient;
-                    this.Connected?.Invoke(this, new StartServerEventArgs(pipeServer, this._connectedClients, clientId, this._pipeName));
+                await pipeServer.WaitForConnectionAsync(this._cancellationTokenSource.Token);
 
-                    _ = HandleClientCommunicationAsync(connectedClient, this._connectedClients, this._cancellationTokenSource, this._pipeName, this._chunkSize);
-                }
-                finally
-                {
-                    pipeServer.Close();
-                    pipeServer.Dispose();
-                }
+                var clientId = Guid.NewGuid();
+                var connectedClient = new ConnectedClient(clientId, pipeServer);
+                this._connectedClients[clientId] = connectedClient;
+                this.Connected?.Invoke(this, new StartServerEventArgs(pipeServer, this._connectedClients, clientId, this._pipeName));
+
+                _ = HandleClientCommunicationAsync(connectedClient, this._connectedClients, this._cancellationTokenSource, this._pipeName, this._chunkSize)
+                    .ContinueWith(task =>
+                    {
+                        if (task.Exception != null)
+                        {
+                            // Handle execptions
+                            Console.WriteLine($"Client communication error: {task.Exception.InnerException?.Message}");
+                        }
+                    }, TaskContinuationOptions.OnlyOnRanToCompletion);
             }
         }
 
@@ -95,45 +98,11 @@ namespace AsynchronousServer
 
         private void DisconnectAllEvents()
         {
-            if (this.Enter != null)
-            {
-                foreach (var handler in this.Enter.GetInvocationList())
-                {
-                    this.Enter -= (EventHandler<string>)handler;
-                }
-            }
-
-            if (this.Connected != null)
-            {
-                foreach (var handler in this.Connected.GetInvocationList())
-                {
-                    this.Connected -= (StartServerEventHandler)handler;
-                }
-            }
-
-            if (this.EnterClientCommunication != null)
-            {
-                foreach (var handler in this.EnterClientCommunication.GetInvocationList())
-                {
-                    this.EnterClientCommunication -= (EventHandler<ConnectedClient>)handler;
-                }
-            }
-
-            if (this.ReceiveData != null)
-            {
-                foreach (var handler in this.ReceiveData.GetInvocationList())
-                {
-                    this.ReceiveData -= (ClientCommunicationEventHandler)handler;
-                }
-            }
-
-            if (this.StopServer != null)
-            {
-                foreach (var handler in this.StopServer.GetInvocationList())
-                {
-                    this.StopServer -= (EventHandler)handler;
-                }
-            }
+            this.Enter.UnsubscribeAllHandlers<EventHandler<string>> ((handler) => this.Enter -= handler);
+            this.Connected.UnsubscribeAllHandlers<StartServerEventHandler> ((handler) => this.Connected -= handler);
+            this.EnterClientCommunication.UnsubscribeAllHandlers<EventHandler<ConnectedClient>> ((handler) => this.EnterClientCommunication -= handler);
+            this.ReceiveData.UnsubscribeAllHandlers<ClientCommunicationEventHandler> ((handler) => this.ReceiveData -= handler);
+            this.StopServer.UnsubscribeAllHandlers<EventHandler> ((handler) => this.StopServer -= handler);
             return;
         }
 

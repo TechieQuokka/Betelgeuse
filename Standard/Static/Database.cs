@@ -1,6 +1,6 @@
 ﻿using MySql.Data.MySqlClient;
 
-namespace Standard
+namespace Standard.Static
 {
     public static class Database
     {
