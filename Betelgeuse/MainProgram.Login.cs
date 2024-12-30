@@ -19,7 +19,7 @@ namespace Betelgeuse
         private static async void IntegrateApplication_EventCallback(object? sender, AsynchronousServer.DataType.ConnectedClient arguments)
         {
             var pipeServer = sender as PipeServer ?? throw new ArgumentNullException(nameof(sender));
-            var stream = arguments.PipeStream;
+            var stream = arguments.MyStream;
 
             string commandString = "Integrate";
 

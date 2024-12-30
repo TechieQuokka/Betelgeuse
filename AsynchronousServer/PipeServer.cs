@@ -1,6 +1,5 @@
 ﻿using System.Collections.Concurrent;
 using System.IO.Pipes;
-using System.Runtime.CompilerServices;
 using AsynchronousServer.DataType;
 using AsynchronousServer.StaticMethod;
 using static Standard.Static.Free;
@@ -69,13 +68,15 @@ namespace AsynchronousServer
 
         private async Task HandleClientCommunicationAsync(ConnectedClient client, ConcurrentDictionary<Guid, ConnectedClient> connectedClients, CancellationTokenSource cancellationTokenSource, string pipeName, int chunkSize)
         {
+
             try
             {
                 this.EnterClientCommunication?.Invoke(this, client);
 
-                while (client.PipeStream.IsConnected)
+                var stream = client.MyStream as NamedPipeClientStream ?? throw new ArgumentNullException(nameof(client.MyStream)); ;
+                while (stream.IsConnected)
                 {
-                    var data = await client.PipeStream.ReceiveInChunksAsync(chunkSize);
+                    var data = await client.MyStream.ReceiveInChunksAsync(chunkSize);
                     if (data is null || data.Length == 0) continue;
 
                     this.ReceiveData?.Invoke(this, new ClientCommunicationEventArgs(client, data, pipeName, cancellationTokenSource, connectedClients));
@@ -84,8 +85,8 @@ namespace AsynchronousServer
             finally
             {
                 connectedClients.TryRemove(client.Id, out _);
-                client.PipeStream.Close();
-                client.PipeStream.Dispose();
+                client.MyStream.Close();
+                client.MyStream.Dispose();
             }
         }
 
@@ -113,6 +114,8 @@ namespace AsynchronousServer
                 if (disposing)
                 {
                     // TODO: 관리형 상태(관리형 개체)를 삭제합니다.
+                    this._cancellationTokenSource.Cancel();
+                    this._cancellationTokenSource.Dispose();
                 }
 
                 // TODO: 비관리형 리소스(비관리형 개체)를 해제하고 종료자를 재정의합니다.

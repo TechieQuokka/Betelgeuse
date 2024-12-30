@@ -1,4 +1,6 @@
-﻿using AsynchronousServer;
+﻿using System.Net;
+using System.Net.Sockets;
+using AsynchronousServer;
 using Betelgeuse.Global;
 using MySql.Data.MySqlClient;
 
@@ -14,34 +16,55 @@ namespace Betelgeuse
             var pipeServer = new PipeServer("BetelgeuseLocalServer");
             InitializeLogin(pipeServer);
 
+            var tcpServer = new TcpServer();
+
             var connection = _sqlConnection ?? throw new ArgumentNullException(nameof(_sqlConnection));
 
+
+            pipeServer.Enter += PipeServer_Enter;
+            tcpServer.Enter += TcpServer_Enter;
             try
             {
                 connection.Open();
                 Console.WriteLine("DB has been connected!");
-                Console.WriteLine("The server has started!");
                 var pipeServerTask = pipeServer.StartServerAsync();
-                var waitForExitTask = WaitForExitKeyAsync(pipeServer);
+                var tcpServerTask = tcpServer.StartServerAsync(IPAddress.Any, 32983);
+                var waitForExitTask = WaitForExitKeyAsync(pipeServer, tcpServer);
 
-                await Task.WhenAny(pipeServerTask, waitForExitTask);
+                await Task.WhenAny(pipeServerTask, tcpServerTask, waitForExitTask);
             }
             finally
             {
                 AES.Dispose();
                 connection?.Close();
                 connection?.Dispose();
+                pipeServer?.Stop();
+                tcpServer?.Stop();
+                tcpServer?.Dispose();
                 pipeServer?.Dispose();
             }
             return;
         }
 
-        private static async Task WaitForExitKeyAsync(PipeServer server)
+        private static void PipeServer_Enter(object? sender, string e)
+        {
+            Console.WriteLine("The server1 has started!");
+            return;
+        }
+
+        private static void TcpServer_Enter(object? sender, TcpListener e)
+        {
+            Console.WriteLine("The server2 has started!");
+            return;
+        }
+
+        private static async Task WaitForExitKeyAsync(PipeServer server1, TcpServer server2)
         {
             Console.WriteLine("Press the Delete key to shut down the server...");
             await Task.Run(() => { while (Console.ReadKey(true).Key != ConsoleKey.Delete) ; });
 
-            server.Stop();
+            server1.Stop();
+            server2.Stop();
             Console.WriteLine("Shutting down the server...");
         }
     }

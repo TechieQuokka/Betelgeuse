@@ -1,16 +1,14 @@
-﻿using System.IO.Pipes;
-
-namespace AsynchronousServer.DataType
+﻿namespace AsynchronousServer.DataType
 {
     public class ConnectedClient
     {
         public Guid Id { get; private set; }
-        public NamedPipeServerStream PipeStream { get; private set; }
+        public Stream MyStream { get; private set; }
 
-        public ConnectedClient (Guid id, NamedPipeServerStream pipeStream)
+        public ConnectedClient (Guid id, Stream stream)
         {
             this.Id = id;
-            this.PipeStream = pipeStream;
+            this.MyStream = stream;
             return;
         }
     }
