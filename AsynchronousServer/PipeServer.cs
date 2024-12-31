@@ -26,7 +26,7 @@ namespace AsynchronousServer
 
         public int ChunkSize => this._chunkSize;
 
-        public int ConnectedClientCount { get => this._connectedClients.Count; }
+        int IServer.ConnectedClientCount { get => this._connectedClients.Count; }
 
         public PipeServer (string pipeName, int maxNumberOfServerInstances = 10, int chunkSize = 65536)
         {

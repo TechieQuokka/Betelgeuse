@@ -15,7 +15,7 @@ namespace AsynchronousServer
         private readonly IPAddress _ipAddress;
         private readonly int _port;
 
-        public int ConnectedClientCount => this._connectedClients.Count;
+        int IServer.ConnectedClientCount => this._connectedClients.Count;
         public int ChunkSize => this._chunkSize;
 
         private bool disposedValue;

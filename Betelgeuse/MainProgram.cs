@@ -1,5 +1,4 @@
 ﻿using System.Net;
-using System.Net.Sockets;
 using AsynchronousServer;
 using Betelgeuse.Global;
 using MySql.Data.MySqlClient;
