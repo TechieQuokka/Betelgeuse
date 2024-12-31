@@ -9,41 +9,45 @@ namespace AsynchronousServer
     public delegate void StartServerEventHandler(object sender, StartServerEventArgs argument);
     public delegate void ClientCommunicationEventHandler(object sender, ClientCommunicationEventArgs argument);
 
-    public class PipeServer : IDisposable
+    public class PipeServer : IServer
     {
         private readonly string _pipeName;
         private readonly CancellationTokenSource _cancellationTokenSource;
         private readonly ConcurrentDictionary<Guid, ConnectedClient> _connectedClients;
         private readonly int _chunkSize;
+        private readonly int _maxNumberOfServerInstances;
         private bool disposedValue;
 
-        public event EventHandler<string>? Enter;
+        public event EventHandler? Enter;
         public event StartServerEventHandler? Connected;
         public event EventHandler<ConnectedClient>? EnterClientCommunication;
         public event ClientCommunicationEventHandler? ReceiveData;
         public event EventHandler? StopServer;
 
+        public int ChunkSize => this._chunkSize;
+
         public int ConnectedClientCount { get => this._connectedClients.Count; }
 
-        public PipeServer (string pipeName, int chunkSize = 65536)
+        public PipeServer (string pipeName, int maxNumberOfServerInstances = 10, int chunkSize = 65536)
         {
             this._pipeName = pipeName;
             this._cancellationTokenSource = new CancellationTokenSource ();
             this._connectedClients = new ConcurrentDictionary<Guid, ConnectedClient>();
             this._chunkSize = chunkSize;
+            this._maxNumberOfServerInstances = maxNumberOfServerInstances;
             return;
         }
 
-        public async Task StartServerAsync(int maxNumberOfServerInstances = 10)
+        public async Task StartServerAsync()
         {
-            this.Enter?.Invoke(this, this._pipeName);
+            this.Enter?.Invoke(this, new EventArgs());
 
             while (!this._cancellationTokenSource.Token.IsCancellationRequested)
             {
                 var pipeServer = new NamedPipeServerStream(
                     this._pipeName,
                     PipeDirection.InOut,
-                    maxNumberOfServerInstances,
+                    this._maxNumberOfServerInstances,
                     PipeTransmissionMode.Byte,
                     PipeOptions.Asynchronous);
 
@@ -73,7 +77,7 @@ namespace AsynchronousServer
             {
                 this.EnterClientCommunication?.Invoke(this, client);
 
-                var stream = client.MyStream as NamedPipeClientStream ?? throw new ArgumentNullException(nameof(client.MyStream)); ;
+                var stream = client.MyStream as NamedPipeServerStream ?? throw new ArgumentNullException(nameof(client.MyStream)); ;
                 while (stream.IsConnected)
                 {
                     var data = await client.MyStream.ReceiveInChunksAsync(chunkSize);
@@ -99,7 +103,7 @@ namespace AsynchronousServer
 
         private void DisconnectAllEvents()
         {
-            this.Enter.UnsubscribeAllHandlers<EventHandler<string>> ((handler) => this.Enter -= handler);
+            this.Enter.UnsubscribeAllHandlers<EventHandler> ((handler) => this.Enter -= handler);
             this.Connected.UnsubscribeAllHandlers<StartServerEventHandler> ((handler) => this.Connected -= handler);
             this.EnterClientCommunication.UnsubscribeAllHandlers<EventHandler<ConnectedClient>> ((handler) => this.EnterClientCommunication -= handler);
             this.ReceiveData.UnsubscribeAllHandlers<ClientCommunicationEventHandler> ((handler) => this.ReceiveData -= handler);

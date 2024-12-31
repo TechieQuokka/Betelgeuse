@@ -13,10 +13,10 @@ namespace Betelgeuse
 
         public static async Task Main(string[] args)
         {
-            var pipeServer = new PipeServer("BetelgeuseLocalServer");
+            IServer pipeServer = new PipeServer("BetelgeuseLocalServer");
             InitializeLogin(pipeServer);
 
-            var tcpServer = new TcpServer();
+            IServer tcpServer = new TcpServer(IPAddress.Any, 32983);
 
             var connection = _sqlConnection ?? throw new ArgumentNullException(nameof(_sqlConnection));
 
@@ -28,7 +28,7 @@ namespace Betelgeuse
                 connection.Open();
                 Console.WriteLine("DB has been connected!");
                 var pipeServerTask = pipeServer.StartServerAsync();
-                var tcpServerTask = tcpServer.StartServerAsync(IPAddress.Any, 32983);
+                var tcpServerTask = tcpServer.StartServerAsync();
                 var waitForExitTask = WaitForExitKeyAsync(pipeServer, tcpServer);
 
                 await Task.WhenAny(pipeServerTask, tcpServerTask, waitForExitTask);
@@ -46,19 +46,19 @@ namespace Betelgeuse
             return;
         }
 
-        private static void PipeServer_Enter(object? sender, string e)
+        private static void PipeServer_Enter(object? sender, EventArgs e)
         {
             Console.WriteLine("The server1 has started!");
             return;
         }
 
-        private static void TcpServer_Enter(object? sender, TcpListener e)
+        private static void TcpServer_Enter(object? sender, EventArgs e)
         {
             Console.WriteLine("The server2 has started!");
             return;
         }
 
-        private static async Task WaitForExitKeyAsync(PipeServer server1, TcpServer server2)
+        private static async Task WaitForExitKeyAsync(IServer server1, IServer server2)
         {
             Console.WriteLine("Press the Delete key to shut down the server...");
             await Task.Run(() => { while (Console.ReadKey(true).Key != ConsoleKey.Delete) ; });

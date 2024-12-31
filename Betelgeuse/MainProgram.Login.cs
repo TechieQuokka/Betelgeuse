@@ -10,7 +10,7 @@ namespace Betelgeuse
 {
     public partial class MainProgram
     {
-        private static void InitializeLogin(PipeServer server)
+        private static void InitializeLogin(IServer server)
         {
             server.EnterClientCommunication += IntegrateApplication_EventCallback;
             return;

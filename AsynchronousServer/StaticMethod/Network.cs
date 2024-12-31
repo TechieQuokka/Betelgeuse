@@ -1,8 +1,4 @@
-﻿using System.Diagnostics;
-using Standard.DataType;
-using Standard.Static;
-
-namespace AsynchronousServer.StaticMethod
+﻿namespace AsynchronousServer.StaticMethod
 {
     public static class Network
     {
