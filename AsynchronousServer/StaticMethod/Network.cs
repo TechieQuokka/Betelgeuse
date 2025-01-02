@@ -16,6 +16,8 @@
                 int currentChunkSize = Math.Min(chunkSize, data.Length - index);
                 await stream.WriteAsync(data, index, currentChunkSize);
             }
+
+            await stream.FlushAsync();
             return;
         }
 

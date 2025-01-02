@@ -55,5 +55,17 @@ namespace AsynchronousServer
         /// Stops the server and cancels all ongoing operations.
         /// </summary>
         void Stop();
+
+        /// <summary>
+        /// Sends data in chunks through the stream.
+        /// </summary>
+        /// <param name="data">The data to be sent in chunks.</param>
+        void SendInChunks(Stream stream, byte[] data);
+
+        /// <summary>
+        /// Receives data in chunks from the stream.
+        /// </summary>
+        /// <returns>A byte array containing the received data.</returns>
+        byte[] ReceiveInChunks(Stream stream);
     }
 }

@@ -16,20 +16,20 @@ namespace Betelgeuse
             return;
         }
 
-        private static async void IntegrateApplication_EventCallback(object? sender, AsynchronousServer.DataType.ConnectedClient arguments)
+        private static void IntegrateApplication_EventCallback(object? sender, AsynchronousServer.DataType.ConnectedClient arguments)
         {
-            var pipeServer = sender as PipeServer ?? throw new ArgumentNullException(nameof(sender));
+            var pipeServer = sender as IServer ?? throw new ArgumentNullException(nameof(sender));
             var stream = arguments.MyStream;
 
             string commandString = "Integrate";
 
             var data = System.Text.Encoding.UTF8.GetBytes(Common.ToJson(string.Empty, commandString));
-            await stream.SendInChunksAsync(data, BufferSize);
+            pipeServer.SendInChunks(arguments.MyStream, data);
 
-            var buffer = await stream.ReceiveInChunksAsync (BufferSize);
+            var buffer = pipeServer.ReceiveInChunks(stream);
             string jsonString = System.Text.Encoding.UTF8.GetString(buffer, 0, buffer.Length);
             var header = JsonSerializer.Deserialize<Header>(jsonString);
-            if (header == null || header.Request == commandString)
+            if (header == null || header.Request != commandString)
             {
                 pipeServer.Stop();
                 // logging...
@@ -54,6 +54,11 @@ namespace Betelgeuse
 
             // successful!!
             // logging...
+
+            data = System.Text.Encoding.UTF8.GetBytes(Common.ToJson("Successful!", commandString));
+            pipeServer.SendInChunks(stream, data);
+
+            Console.WriteLine("Successful!!");
             return;
         }
     }

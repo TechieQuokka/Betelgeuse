@@ -20,8 +20,8 @@ namespace Betelgeuse
             var connection = _sqlConnection ?? throw new ArgumentNullException(nameof(_sqlConnection));
 
 
-            pipeServer.Enter += PipeServer_Enter;
-            tcpServer.Enter += TcpServer_Enter;
+            pipeServer.Enter += (_, _) => Console.WriteLine("The server1 has started!");
+            tcpServer.Enter += (_, _) => Console.WriteLine("The server2 has started!");
             try
             {
                 connection.Open();
@@ -45,25 +45,15 @@ namespace Betelgeuse
             return;
         }
 
-        private static void PipeServer_Enter(object? sender, EventArgs e)
-        {
-            Console.WriteLine("The server1 has started!");
-            return;
-        }
-
-        private static void TcpServer_Enter(object? sender, EventArgs e)
-        {
-            Console.WriteLine("The server2 has started!");
-            return;
-        }
-
-        private static async Task WaitForExitKeyAsync(IServer server1, IServer server2)
+        private static async Task WaitForExitKeyAsync(params IServer[] servers)
         {
             Console.WriteLine("Press the Delete key to shut down the server...");
             await Task.Run(() => { while (Console.ReadKey(true).Key != ConsoleKey.Delete) ; });
 
-            server1.Stop();
-            server2.Stop();
+            foreach (var server in servers)
+            {
+                server.Stop();
+            }
             Console.WriteLine("Shutting down the server...");
         }
     }

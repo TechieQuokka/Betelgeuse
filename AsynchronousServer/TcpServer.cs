@@ -14,6 +14,7 @@ namespace AsynchronousServer
         private readonly int _chunkSize;
         private readonly IPAddress _ipAddress;
         private readonly int _port;
+        private byte[] _buffer;
 
         int IServer.ConnectedClientCount => this._connectedClients.Count;
         public int ChunkSize => this._chunkSize;
@@ -33,6 +34,7 @@ namespace AsynchronousServer
             this._chunkSize = chunkSize;
             this._ipAddress = ipAddress;
             this._port = port;
+            this._buffer = new byte[chunkSize];
             return;
         }
 
@@ -92,6 +94,48 @@ namespace AsynchronousServer
         {
             this.StopServer?.Invoke(this, new EventArgs());
             this._cancellationTokenSource?.Cancel();
+        }
+
+        public void SendInChunks(Stream stream, byte[] data)
+        {
+            ArgumentNullException.ThrowIfNull(stream);
+            ArgumentNullException.ThrowIfNull(data);
+
+            // Sending data size
+            var dataSizeBuffer = BitConverter.GetBytes(data.Length);
+            stream.Write(dataSizeBuffer, 0, dataSizeBuffer.Length);
+
+            for (int index = 0; index < data.Length; index += this._chunkSize)
+            {
+                int currentChunkSize = Math.Min(this._chunkSize, data.Length - index);
+                stream.Write(data, index, currentChunkSize);
+            }
+
+            stream.Flush();
+            return;
+        }
+
+        public byte[] ReceiveInChunks(Stream stream)
+        {
+            ArgumentNullException.ThrowIfNull(stream);
+
+            // 데이터 크기 읽기
+            var dataSizeBuffer = new byte[sizeof(int)];
+            _ = stream.Read(dataSizeBuffer, 0, dataSizeBuffer.Length);
+            int dataSize = BitConverter.ToInt32(dataSizeBuffer, 0);
+
+            var receivedData = new List<byte>();
+            var buffer = this._buffer;
+            int bytesRead;
+            int totalBytesRead = 0;
+
+            while (totalBytesRead < dataSize && (bytesRead = stream.Read(buffer, 0, this._chunkSize)) > 0)
+            {
+                receivedData.AddRange(buffer.Take(bytesRead));
+                totalBytesRead += bytesRead;
+            }
+
+            return receivedData.ToArray();
         }
 
         private void DisconnectAllEvents()

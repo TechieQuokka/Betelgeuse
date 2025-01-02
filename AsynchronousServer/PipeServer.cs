@@ -17,6 +17,7 @@ namespace AsynchronousServer
         private readonly int _chunkSize;
         private readonly int _maxNumberOfServerInstances;
         private bool disposedValue;
+        private byte[] _buffer;
 
         public event EventHandler? Enter;
         public event StartServerEventHandler? Connected;
@@ -35,6 +36,7 @@ namespace AsynchronousServer
             this._connectedClients = new ConcurrentDictionary<Guid, ConnectedClient>();
             this._chunkSize = chunkSize;
             this._maxNumberOfServerInstances = maxNumberOfServerInstances;
+            this._buffer = new byte[chunkSize];
             return;
         }
 
@@ -66,7 +68,7 @@ namespace AsynchronousServer
                             // Handle execptions
                             Console.WriteLine($"Client communication error: {task.Exception.InnerException?.Message}");
                         }
-                    }, TaskContinuationOptions.OnlyOnRanToCompletion);
+                    }, TaskContinuationOptions.NotOnFaulted);
             }
         }
 
@@ -101,13 +103,55 @@ namespace AsynchronousServer
             return;
         }
 
+        public void SendInChunks(Stream stream, byte[] data)
+        {
+            ArgumentNullException.ThrowIfNull(stream);
+            ArgumentNullException.ThrowIfNull(data);
+
+            // Sending data size
+            var dataSizeBuffer = BitConverter.GetBytes(data.Length);
+            stream.Write(dataSizeBuffer, 0, dataSizeBuffer.Length);
+
+            for (int index = 0; index < data.Length; index += this._chunkSize)
+            {
+                int currentChunkSize = Math.Min(this._chunkSize, data.Length - index);
+                stream.Write(data, index, currentChunkSize);
+            }
+
+            stream.Flush();
+            return;
+        }
+
+        public byte[] ReceiveInChunks(Stream stream)
+        {
+            ArgumentNullException.ThrowIfNull(stream);
+
+            // 데이터 크기 읽기
+            var dataSizeBuffer = new byte[sizeof(int)];
+            _ = stream.Read(dataSizeBuffer, 0, dataSizeBuffer.Length);
+            int dataSize = BitConverter.ToInt32(dataSizeBuffer, 0);
+
+            var receivedData = new List<byte>();
+            var buffer = this._buffer;
+            int bytesRead;
+            int totalBytesRead = 0;
+
+            while (totalBytesRead < dataSize && (bytesRead = stream.Read(buffer, 0, this._chunkSize)) > 0)
+            {
+                receivedData.AddRange(buffer.Take(bytesRead));
+                totalBytesRead += bytesRead;
+            }
+
+            return receivedData.ToArray();
+        }
+
         private void DisconnectAllEvents()
         {
-            this.Enter.UnsubscribeAllHandlers<EventHandler> ((handler) => this.Enter -= handler);
-            this.Connected.UnsubscribeAllHandlers<StartServerEventHandler> ((handler) => this.Connected -= handler);
-            this.EnterClientCommunication.UnsubscribeAllHandlers<EventHandler<ConnectedClient>> ((handler) => this.EnterClientCommunication -= handler);
-            this.ReceiveData.UnsubscribeAllHandlers<ClientCommunicationEventHandler> ((handler) => this.ReceiveData -= handler);
-            this.StopServer.UnsubscribeAllHandlers<EventHandler> ((handler) => this.StopServer -= handler);
+            this.Enter?.UnsubscribeAllHandlers<EventHandler> ((handler) => this.Enter -= handler);
+            this.Connected?.UnsubscribeAllHandlers<StartServerEventHandler> ((handler) => this.Connected -= handler);
+            this.EnterClientCommunication?.UnsubscribeAllHandlers<EventHandler<ConnectedClient>> ((handler) => this.EnterClientCommunication -= handler);
+            this.ReceiveData?.UnsubscribeAllHandlers<ClientCommunicationEventHandler> ((handler) => this.ReceiveData -= handler);
+            this.StopServer?.UnsubscribeAllHandlers<EventHandler> ((handler) => this.StopServer -= handler);
             return;
         }
 
