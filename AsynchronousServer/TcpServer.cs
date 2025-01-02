@@ -1,6 +1,7 @@
 ﻿using System.Collections.Concurrent;
 using System.Net;
 using System.Net.Sockets;
+using System.Reflection.Metadata;
 using AsynchronousServer.DataType;
 using AsynchronousServer.StaticMethod;
 using Standard.Static;
@@ -52,7 +53,7 @@ namespace AsynchronousServer
                     var client = await server.AcceptTcpClientAsync();
 
                     var clientId = Guid.NewGuid();
-                    var connectedClient = new ConnectedClient(clientId, client.GetStream());
+                    var connectedClient = new ConnectedClient(clientId, client.GetStream(), new CancellationTokenSource());
                     this._connectedClients[clientId] = connectedClient;
                     this.Connected?.Invoke(this, new StartServerEventArgs(connectedClient.MyStream, this._connectedClients, clientId, string.Empty));
 
@@ -75,21 +76,50 @@ namespace AsynchronousServer
             {
                 this.EnterClientCommunication?.Invoke(this, connectedClient);
 
-                while (client.Connected)
+                while (client.Connected && connectedClients[connectedClient.Id].Cancellation.Token.IsCancellationRequested)
                 {
-                    var data = await connectedClient.MyStream.ReceiveInChunksAsync(chunkSize);
-                    if (data is null || data.Length == 0) continue;
+                    var receiveTask = connectedClient.MyStream.ReceiveInChunksAsync(chunkSize);
+                    var disconnectionTask = this.WaitingForDisconnection(connectedClient.Cancellation);
 
-                    this.ReceiveData?.Invoke(this, new ClientCommunicationEventArgs(connectedClient, data, string.Empty, cancellationTokenSource, connectedClients));
+                    var completedTask = await Task.WhenAny(receiveTask, disconnectionTask);
+                    if (completedTask == disconnectionTask)
+                    {
+                        receiveTask?.Dispose();
+                        return;
+                    }
+                    else if (completedTask == receiveTask && receiveTask.Result != null)
+                    {
+                        this.ReceiveData?.Invoke(this, new ClientCommunicationEventArgs(connectedClient, receiveTask.Result, string.Empty, cancellationTokenSource, connectedClients));
+                    }
+
+                    disconnectionTask?.Dispose();
                 }
             }
             finally
             {
                 connectedClients.TryRemove(connectedClient.Id, out _);
+                connectedClient.MyStream.Close();
+                connectedClient.MyStream.Dispose();
+                connectedClient.Cancellation.Dispose();
                 client.Close();
                 client.Dispose();
             }
             return;
+        }
+
+        private async Task WaitingForDisconnection(CancellationTokenSource cancellation)
+        {
+            await Task.Delay(Timeout.Infinite, cancellation.Token);
+            return;
+        }
+
+        public bool Disconnect(Guid clientId)
+        {
+            var clients = this._connectedClients;
+            if (clients.ContainsKey(clientId) is false) return false;
+
+            clients[clientId].Cancellation.Cancel();
+            return true;
         }
 
         public void Stop()

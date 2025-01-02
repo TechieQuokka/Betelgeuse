@@ -52,6 +52,13 @@ namespace AsynchronousServer
         Task StartServerAsync();
 
         /// <summary>
+        /// Disconnects a specific client from the server based on the client ID.
+        /// </summary>
+        /// <param name="clientId">The unique identifier of the client to disconnect.</param>
+        /// <returns>A boolean value indicating whether the client was successfully disconnected.</returns>
+        bool Disconnect(Guid clientId);
+
+        /// <summary>
         /// Stops the server and cancels all ongoing operations.
         /// </summary>
         void Stop();

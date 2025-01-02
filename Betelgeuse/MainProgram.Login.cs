@@ -31,7 +31,6 @@ namespace Betelgeuse
             if (header == null || header.Request != commandString)
             {
                 _ = disconnect.ForceClientDisconnect(pipeServer, stream);
-                pipeServer.Stop();
                 // logging...
                 return;
             }
@@ -40,7 +39,6 @@ namespace Betelgeuse
             if (key == null || key.Length == 0)
             {
                 _ = disconnect.ForceClientDisconnect(pipeServer, stream);
-                pipeServer.Stop();
                 // logging...
                 return;
             }
@@ -49,7 +47,6 @@ namespace Betelgeuse
             if (aesKey != PrivateKey.integrateKey)
             {
                 _ = disconnect.ForceClientDisconnect(pipeServer, stream);
-                pipeServer.Stop();
                 // logging...
                 return;
             }

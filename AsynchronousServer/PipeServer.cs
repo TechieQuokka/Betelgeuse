@@ -34,7 +34,7 @@ namespace AsynchronousServer
         public PipeServer (string pipeName, int maxNumberOfServerInstances = 10, int chunkSize = 65536)
         {
             this._pipeName = pipeName;
-            this._cancellationTokenSource = new CancellationTokenSource ();
+            this._cancellationTokenSource = new CancellationTokenSource();
             this._connectedClients = new ConcurrentDictionary<Guid, ConnectedClient>();
             this._chunkSize = chunkSize;
             this._maxNumberOfServerInstances = maxNumberOfServerInstances;
@@ -58,7 +58,7 @@ namespace AsynchronousServer
                 await pipeServer.WaitForConnectionAsync(this._cancellationTokenSource.Token);
 
                 var clientId = Guid.NewGuid();
-                var connectedClient = new ConnectedClient(clientId, pipeServer);
+                var connectedClient = new ConnectedClient(clientId, pipeServer, new CancellationTokenSource());
                 this._connectedClients[clientId] = connectedClient;
                 this.Connected?.Invoke(this, new StartServerEventArgs(pipeServer, this._connectedClients, clientId, this._pipeName));
 
@@ -76,18 +76,28 @@ namespace AsynchronousServer
 
         private async Task HandleClientCommunicationAsync(ConnectedClient client, ConcurrentDictionary<Guid, ConnectedClient> connectedClients, CancellationTokenSource cancellationTokenSource, string pipeName, int chunkSize)
         {
-
             try
             {
                 this.EnterClientCommunication?.Invoke(this, client);
 
-                var stream = client.MyStream as NamedPipeServerStream ?? throw new ArgumentNullException(nameof(client.MyStream)); ;
-                while (stream.IsConnected)
+                var stream = client.MyStream as NamedPipeServerStream ?? throw new ArgumentNullException(nameof(client.MyStream));
+                while (stream.IsConnected && !client.Cancellation.Token.IsCancellationRequested)
                 {
-                    var data = await client.MyStream.ReceiveInChunksAsync(chunkSize);
-                    if (data is null || data.Length == 0) continue;
+                    var receiveTask = client.MyStream.ReceiveInChunksAsync(chunkSize);
+                    var disconnectionTask = this.WaitingForDisconnection(client.Cancellation);
 
-                    this.ReceiveData?.Invoke(this, new ClientCommunicationEventArgs(client, data, pipeName, cancellationTokenSource, connectedClients));
+                    var completedTask = await Task.WhenAny(receiveTask, disconnectionTask);
+                    if (completedTask == disconnectionTask)
+                    {
+                        receiveTask?.Dispose();
+                        return;
+                    }
+                    else if (completedTask == receiveTask && receiveTask.Result != null)
+                    {
+                        this.ReceiveData?.Invoke(this, new ClientCommunicationEventArgs(client, receiveTask.Result, pipeName, cancellationTokenSource, connectedClients));
+                    }
+
+                    disconnectionTask?.Dispose();
                 }
             }
             finally
@@ -95,7 +105,23 @@ namespace AsynchronousServer
                 connectedClients.TryRemove(client.Id, out _);
                 client.MyStream.Close();
                 client.MyStream.Dispose();
+                client.Cancellation.Dispose();
             }
+        }
+
+        private async Task WaitingForDisconnection(CancellationTokenSource cancellation)
+        {
+            await Task.Delay(Timeout.Infinite, cancellation.Token);
+            return;
+        }
+
+        public bool Disconnect(Guid clientId)
+        {
+            var clients = this._connectedClients;
+            if (clients.ContainsKey(clientId) is false) return false;
+
+            clients[clientId].Cancellation.Cancel();
+            return true;
         }
 
         public void Stop()
