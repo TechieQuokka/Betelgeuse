@@ -1,10 +1,8 @@
 ﻿using System.Text.Json;
 using AsynchronousServer;
-using AsynchronousServer.StaticMethod;
 using Betelgeuse.Global;
 using Standard.DataType;
 using Standard.Static;
-using static Betelgeuse.Global.GlobalVariable;
 
 namespace Betelgeuse
 {
@@ -19,6 +17,7 @@ namespace Betelgeuse
         private static void IntegrateApplication_EventCallback(object? sender, AsynchronousServer.DataType.ConnectedClient arguments)
         {
             var pipeServer = sender as IServer ?? throw new ArgumentNullException(nameof(sender));
+            var disconnect = sender as ForceDisconnectServer ?? throw new ArgumentNullException(nameof(sender));
             var stream = arguments.MyStream;
 
             string commandString = "Integrate";
@@ -31,6 +30,7 @@ namespace Betelgeuse
             var header = JsonSerializer.Deserialize<Header>(jsonString);
             if (header == null || header.Request != commandString)
             {
+                _ = disconnect.ForceClientDisconnect(pipeServer, stream);
                 pipeServer.Stop();
                 // logging...
                 return;
@@ -39,6 +39,7 @@ namespace Betelgeuse
             var key = JsonSerializer.Deserialize<byte[]>(header.Data);
             if (key == null || key.Length == 0)
             {
+                _ = disconnect.ForceClientDisconnect(pipeServer, stream);
                 pipeServer.Stop();
                 // logging...
                 return;
@@ -47,6 +48,7 @@ namespace Betelgeuse
             var aesKey = AES.Decrypt(key);
             if (aesKey != PrivateKey.integrateKey)
             {
+                _ = disconnect.ForceClientDisconnect(pipeServer, stream);
                 pipeServer.Stop();
                 // logging...
                 return;

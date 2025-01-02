@@ -7,7 +7,7 @@ using Standard.Static;
 
 namespace AsynchronousServer
 {
-    public class TcpServer : IServer
+    public class TcpServer : ForceDisconnectServer, IServer
     {
         private readonly CancellationTokenSource _cancellationTokenSource;
         private readonly ConcurrentDictionary<Guid, ConnectedClient> _connectedClients;
@@ -15,11 +15,13 @@ namespace AsynchronousServer
         private readonly IPAddress _ipAddress;
         private readonly int _port;
         private byte[] _buffer;
+        private bool disposedValue;
+        private string _shutdownString = "SHUTDOWN";
 
         int IServer.ConnectedClientCount => this._connectedClients.Count;
         public int ChunkSize => this._chunkSize;
 
-        private bool disposedValue;
+        protected override string ShutdownString { get => this._shutdownString; set => this._shutdownString = value; }
 
         public event EventHandler? Enter;
         public event StartServerEventHandler? Connected;

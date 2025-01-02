@@ -9,7 +9,7 @@ namespace AsynchronousServer
     public delegate void StartServerEventHandler(object sender, StartServerEventArgs argument);
     public delegate void ClientCommunicationEventHandler(object sender, ClientCommunicationEventArgs argument);
 
-    public class PipeServer : IServer
+    public class PipeServer : ForceDisconnectServer, IServer
     {
         private readonly string _pipeName;
         private readonly CancellationTokenSource _cancellationTokenSource;
@@ -18,6 +18,7 @@ namespace AsynchronousServer
         private readonly int _maxNumberOfServerInstances;
         private bool disposedValue;
         private byte[] _buffer;
+        private string _shutdownString = "SHUTDOWN";
 
         public event EventHandler? Enter;
         public event StartServerEventHandler? Connected;
@@ -28,6 +29,7 @@ namespace AsynchronousServer
         public int ChunkSize => this._chunkSize;
 
         int IServer.ConnectedClientCount { get => this._connectedClients.Count; }
+        protected override string ShutdownString { get => this._shutdownString; set => this._shutdownString = value; }
 
         public PipeServer (string pipeName, int maxNumberOfServerInstances = 10, int chunkSize = 65536)
         {
@@ -126,7 +128,7 @@ namespace AsynchronousServer
         {
             ArgumentNullException.ThrowIfNull(stream);
 
-            // 데이터 크기 읽기
+            // Sending data size
             var dataSizeBuffer = new byte[sizeof(int)];
             _ = stream.Read(dataSizeBuffer, 0, dataSizeBuffer.Length);
             int dataSize = BitConverter.ToInt32(dataSizeBuffer, 0);
