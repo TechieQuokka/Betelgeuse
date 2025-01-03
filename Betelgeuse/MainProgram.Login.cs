@@ -30,7 +30,7 @@ namespace Betelgeuse
             var header = JsonSerializer.Deserialize<Header>(jsonString);
             if (header == null || header.Request != commandString)
             {
-                _ = disconnect.ForceClientDisconnect(pipeServer, stream);
+                _ = disconnect.ForceClientDisconnect(pipeServer, stream, arguments);
                 // logging...
                 return;
             }
@@ -38,7 +38,7 @@ namespace Betelgeuse
             var key = JsonSerializer.Deserialize<byte[]>(header.Data);
             if (key == null || key.Length == 0)
             {
-                _ = disconnect.ForceClientDisconnect(pipeServer, stream);
+                _ = disconnect.ForceClientDisconnect(pipeServer, stream, arguments);
                 // logging...
                 return;
             }
@@ -46,7 +46,7 @@ namespace Betelgeuse
             var aesKey = AES.Decrypt(key);
             if (aesKey != PrivateKey.integrateKey)
             {
-                _ = disconnect.ForceClientDisconnect(pipeServer, stream);
+                _ = disconnect.ForceClientDisconnect(pipeServer, stream, arguments);
                 // logging...
                 return;
             }

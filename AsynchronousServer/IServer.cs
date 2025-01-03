@@ -44,7 +44,6 @@ namespace AsynchronousServer
         /// </summary>
         event EventHandler? StopServer;
 
-
         /// <summary>
         /// Starts the server asynchronously, allowing it to accept client connections and handle data communication.
         /// </summary>
