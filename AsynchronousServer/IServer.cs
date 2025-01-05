@@ -11,6 +11,12 @@ namespace AsynchronousServer
     public interface IServer : IDisposable
     {
         /// <summary>
+        /// Gets a dictionary of clients currently connected to the server, 
+        /// with each client identified by a unique Guid.
+        /// </summary>
+        IDictionary<Guid, ConnectedClient> ConnectedClients { get; }
+
+        /// <summary>
         /// Gets the number of clients currently connected to the server.
         /// </summary>
         int ConnectedClientCount { get; }
@@ -58,6 +64,13 @@ namespace AsynchronousServer
         bool Disconnect(Guid clientId);
 
         /// <summary>
+        /// This method interrupts the task associated with the given clientId and waits for it to complete.
+        /// </summary>
+        /// <param name="clientId">The unique identifier of the client whose task needs to be interrupted.</param>
+        /// <returns>Returns true if the task was successfully interrupted, otherwise false.</returns>
+        bool Kill(Guid clientId);
+
+        /// <summary>
         /// Stops the server and cancels all ongoing operations.
         /// </summary>
         void Stop();
@@ -66,12 +79,12 @@ namespace AsynchronousServer
         /// Sends data in chunks through the stream.
         /// </summary>
         /// <param name="data">The data to be sent in chunks.</param>
-        void SendInChunks(Stream stream, byte[] data);
+        void SendInChunks(in Stream stream, byte[] data);
 
         /// <summary>
         /// Receives data in chunks from the stream.
         /// </summary>
         /// <returns>A byte array containing the received data.</returns>
-        byte[] ReceiveInChunks(Stream stream);
+        byte[] ReceiveInChunks(in Stream stream);
     }
 }

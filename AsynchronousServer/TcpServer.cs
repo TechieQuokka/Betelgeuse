@@ -10,18 +10,22 @@ namespace AsynchronousServer
     public class TcpServer : ForceDisconnectServer, IServer
     {
         private readonly CancellationTokenSource _cancellationTokenSource;
-        private readonly ConcurrentDictionary<Guid, ConnectedClient> _connectedClients;
+        private readonly IDictionary<Guid, ConnectedClient> _connectedClients;
+        private readonly IDictionary<Guid, TaskThreadPair> _tasks;
         private readonly int _chunkSize;
         private readonly IPAddress _ipAddress;
         private readonly int _port;
+        private readonly int _timeout;
         private byte[] _buffer;
         private bool disposedValue;
         private string _shutdownString = "SHUTDOWN";
 
         int IServer.ConnectedClientCount => this._connectedClients.Count;
+        IDictionary<Guid, ConnectedClient> IServer.ConnectedClients { get => this._connectedClients; }
         public int ChunkSize => this._chunkSize;
 
         protected override string ShutdownString { get => this._shutdownString; set => this._shutdownString = value; }
+
 
         public event EventHandler? Enter;
         public event StartServerEventHandler? Connected;
@@ -29,14 +33,16 @@ namespace AsynchronousServer
         public event ClientCommunicationEventHandler? ReceiveData;
         public event EventHandler? StopServer;
 
-        public TcpServer (IPAddress ipAddress, int port, int chunkSize = 65536)
+        public TcpServer (IPAddress ipAddress, int port, int timeout = Timeout.Infinite, int chunkSize = 65536)
         {
             this._cancellationTokenSource = new CancellationTokenSource();
             this._connectedClients = new ConcurrentDictionary<Guid, ConnectedClient>();
+            this._tasks = new ConcurrentDictionary<Guid, TaskThreadPair>();
             this._chunkSize = chunkSize;
             this._ipAddress = ipAddress;
             this._port = port;
             this._buffer = new byte[chunkSize];
+            this._timeout = timeout;
             return;
         }
 
@@ -56,7 +62,9 @@ namespace AsynchronousServer
                     this._connectedClients[clientId] = connectedClient;
                     this.Connected?.Invoke(this, new StartServerEventArgs(connectedClient.MyStream, this._connectedClients, clientId, string.Empty));
 
-                    _ = HandleClientCommunicationAsync(client, connectedClient, this._connectedClients, this._cancellationTokenSource, this._chunkSize).ContinueWith(task =>
+                    var tasks = this._tasks;
+                    tasks.Add(clientId, new TaskThreadPair());
+                    tasks[clientId].Task = HandleClientCommunicationAsync(client, connectedClient, this._connectedClients, tasks, this._cancellationTokenSource, this._chunkSize, this._timeout).ContinueWith(task =>
                     {
                         if (task.Exception != null)
                         {
@@ -69,8 +77,9 @@ namespace AsynchronousServer
             }
         }
 
-        private async Task HandleClientCommunicationAsync (TcpClient client, ConnectedClient connectedClient, ConcurrentDictionary<Guid, ConnectedClient> connectedClients, CancellationTokenSource cancellationTokenSource, int chunkSize)
+        private async Task HandleClientCommunicationAsync (TcpClient client, ConnectedClient connectedClient, IDictionary<Guid, ConnectedClient> connectedClients, IDictionary<Guid, TaskThreadPair> tasks, CancellationTokenSource cancellationTokenSource, int chunkSize, int millisecondsDelay)
         {
+            tasks[connectedClient.Id].CurrentThread = Thread.CurrentThread;
             try
             {
                 this.EnterClientCommunication?.Invoke(this, connectedClient);
@@ -78,7 +87,7 @@ namespace AsynchronousServer
                 while (client.Connected && connectedClients[connectedClient.Id].Cancellation.Token.IsCancellationRequested)
                 {
                     var receiveTask = connectedClient.MyStream.ReceiveInChunksAsync(chunkSize);
-                    var disconnectionTask = this.WaitingForDisconnection(connectedClient.Cancellation);
+                    var disconnectionTask = this.WaitingForDisconnection(connectedClient.Cancellation, millisecondsDelay);
 
                     var completedTask = await Task.WhenAny(receiveTask, disconnectionTask);
                     if (completedTask == disconnectionTask)
@@ -96,7 +105,8 @@ namespace AsynchronousServer
             }
             finally
             {
-                connectedClients.TryRemove(connectedClient.Id, out _);
+                (connectedClients as ConcurrentDictionary<Guid, ConnectedClient>)?.TryRemove(connectedClient.Id, out _);
+                (tasks as ConcurrentDictionary<Guid, TaskThreadPair>)?.TryRemove(connectedClient.Id, out _);
                 connectedClient.MyStream.Close();
                 connectedClient.MyStream.Dispose();
                 connectedClient.Cancellation.Dispose();
@@ -106,9 +116,9 @@ namespace AsynchronousServer
             return;
         }
 
-        private async Task WaitingForDisconnection(CancellationTokenSource cancellation)
+        private async Task WaitingForDisconnection(CancellationTokenSource cancellation, int millisecondsDelay)
         {
-            await Task.Delay(Timeout.Infinite, cancellation.Token);
+            await Task.Delay(millisecondsDelay, cancellation.Token);
             return;
         }
 
@@ -121,13 +131,32 @@ namespace AsynchronousServer
             return true;
         }
 
+        public bool Kill(Guid clientId)
+        {
+            var tasks = this._tasks;
+            if (tasks.ContainsKey(clientId) is false) return false;
+
+            var task = tasks[clientId];
+            bool result = task.Interrupt();
+            task.Task?.Wait();
+
+            return result && tasks.Remove(clientId);
+        }
+
         public void Stop()
         {
+            var tasks = this._tasks;
+            foreach (var task in tasks)
+            {
+                task.Value.Interrupt();
+            }
+            tasks.Clear();
+
             this.StopServer?.Invoke(this, new EventArgs());
             this._cancellationTokenSource?.Cancel();
         }
 
-        public void SendInChunks(Stream stream, byte[] data)
+        public void SendInChunks(in Stream stream, byte[] data)
         {
             ArgumentNullException.ThrowIfNull(stream);
             ArgumentNullException.ThrowIfNull(data);
@@ -146,18 +175,21 @@ namespace AsynchronousServer
             return;
         }
 
-        public byte[] ReceiveInChunks(Stream stream)
+        public byte[] ReceiveInChunks(in Stream stream)
         {
             ArgumentNullException.ThrowIfNull(stream);
 
-            // 데이터 크기 읽기
             var dataSizeBuffer = new byte[sizeof(int)];
-            _ = stream.Read(dataSizeBuffer, 0, dataSizeBuffer.Length);
+            int byteRead = stream.Read(dataSizeBuffer, 0, dataSizeBuffer.Length);
+            if (byteRead != dataSizeBuffer.Length)
+            {
+                throw new InvalidOperationException("Failed to read data size.");
+            }
             int dataSize = BitConverter.ToInt32(dataSizeBuffer, 0);
 
             var receivedData = new List<byte>();
             var buffer = this._buffer;
-            int bytesRead;
+            int bytesRead = 0;
             int totalBytesRead = 0;
 
             while (totalBytesRead < dataSize && (bytesRead = stream.Read(buffer, 0, this._chunkSize)) > 0)
@@ -166,6 +198,10 @@ namespace AsynchronousServer
                 totalBytesRead += bytesRead;
             }
 
+            if (totalBytesRead != dataSize)
+            {
+                throw new InvalidOperationException("Failed to read the complete data.");
+            }
             return receivedData.ToArray();
         }
 
@@ -186,7 +222,7 @@ namespace AsynchronousServer
                 if (disposing)
                 {
                     // TODO: 관리형 상태(관리형 개체)를 삭제합니다.
-                    this._cancellationTokenSource?.Cancel();
+                    this.Stop();
                     this._cancellationTokenSource?.Dispose();
                 }
 
