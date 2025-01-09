@@ -1,5 +1,6 @@
 ﻿using System.Net;
 using AsynchronousServer;
+using Betelgeuse.DataType.Login;
 using Betelgeuse.Global;
 using MySql.Data.MySqlClient;
 
@@ -9,6 +10,7 @@ namespace Betelgeuse
     {
         private static readonly MySqlConnection _sqlConnection = new MySqlConnection(DatabaseVariable.connectionString);
         private static readonly Security.IAdvancedEncryptionStandard AES = new Security.AdvancedEncryptionStandard(PrivateKey.aesKey);
+        private static readonly ClientIdentifier _identifier = new ClientIdentifier();
 
         public static async Task Main(string[] args)
         {
@@ -41,6 +43,7 @@ namespace Betelgeuse
                 tcpServer?.Stop();
                 tcpServer?.Dispose();
                 pipeServer?.Dispose();
+                _identifier.Dispose();
             }
             return;
         }

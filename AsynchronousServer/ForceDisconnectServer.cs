@@ -13,7 +13,7 @@ namespace AsynchronousServer
             var data = System.Text.Encoding.UTF8.GetBytes(Common.ToJson(string.Empty, this.ShutdownString));
             server.SendInChunks(stream, data);
 
-            var buffer = server.ReceiveInChunks(stream, millisecondsTimeout, out var exception);
+            var buffer = server.ReceiveDataWithTimeout(stream, millisecondsTimeout, out var exception);
             if (buffer is null || exception != null)
             {
                 server.Kill(client.Id);

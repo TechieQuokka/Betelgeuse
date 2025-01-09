@@ -1,6 +1,4 @@
-﻿using AsynchronousServer;
-
-namespace Betelgeuse
+﻿namespace Betelgeuse
 {
     public partial class MainProgram
     {

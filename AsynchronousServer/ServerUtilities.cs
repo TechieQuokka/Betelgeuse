@@ -25,7 +25,7 @@ namespace AsynchronousServer
             return;
         }
 
-        public static byte[]? ReceiveInChunks (this IServer server, Stream stream, int millisecondsTimeout, out ThreadInterruptedException? outException)
+        public static byte[]? ReceiveDataWithTimeout (this IServer server, Stream stream, int millisecondsTimeout, out ThreadInterruptedException? outException)
         {
             if (server is null) throw new ArgumentNullException(nameof(server));
             if (stream is null) throw new ArgumentNullException(nameof(stream));
