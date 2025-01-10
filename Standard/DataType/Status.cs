@@ -6,7 +6,9 @@
         Information = 1,
         Warning = 2,
         Error = 4,
-        Question = 8,
-        Command = 16
+        Fatal = 8,
+        Question = 16,
+        Command = 32,
+        Successful = 64
     }
 }

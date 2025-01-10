@@ -2,6 +2,8 @@
 {
     public static class Network
     {
+        private static byte[] _buffer = new byte[1024];
+
         public async static Task SendInChunksAsync(this Stream stream, byte[] data, int chunkSize)
         {
             ArgumentNullException.ThrowIfNull(stream);
@@ -27,12 +29,18 @@
 
             // Read data size
             var dataSizeBuffer = new byte[sizeof(int)];
-            _ = await stream.ReadAsync(dataSizeBuffer, 0, dataSizeBuffer.Length);
+            int byteRead = await stream.ReadAsync(dataSizeBuffer, 0, dataSizeBuffer.Length);
+            if (byteRead != dataSizeBuffer.Length)
+            {
+                throw new InvalidOperationException("Failed to read data size.");
+            }
             int dataSize = BitConverter.ToInt32(dataSizeBuffer, 0);
 
+            if (_buffer.Length < chunkSize) _buffer = new byte[chunkSize];
+
             var receivedData = new List<byte>();
-            var buffer = new byte[chunkSize];
-            int bytesRead;
+            var buffer = _buffer;
+            int bytesRead = 0;
             int totalBytesRead = 0;
 
             while (totalBytesRead < dataSize && (bytesRead = await stream.ReadAsync(buffer, 0, chunkSize)) > 0)
@@ -41,6 +49,10 @@
                 totalBytesRead += bytesRead;
             }
 
+            if (totalBytesRead != dataSize)
+            {
+                throw new InvalidOperationException("Failed to read the complete data.");
+            }
             return receivedData.ToArray();
         }
     }
