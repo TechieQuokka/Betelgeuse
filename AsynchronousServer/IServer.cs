@@ -28,27 +28,32 @@ namespace AsynchronousServer
         /// <summary>
         /// Occurs when the server is started.
         /// </summary>
-        event EventHandler? Enter;
+        event EventHandler Enter;
 
         /// <summary>
         /// Occurs when a client successfully connects to the server.
         /// </summary>
-        event StartServerEventHandler? Connected;
+        event StartServerEventHandler Connected;
 
         /// <summary>
         /// Occurs when the server enters client communication mode.
         /// </summary>
-        event EventHandler<ConnectedClient>? EnterClientCommunication;
+        event EventHandler<ConnectedClient> EnterClientCommunication;
 
         /// <summary>
         /// Occurs when data is received from a client.
         /// </summary>
-        event ClientCommunicationEventHandler? ReceiveData;
+        event ClientCommunicationEventHandler ReceiveData;
+
+        /// <summary>
+        /// Occurs when a client disconnects from the server.
+        /// </summary>
+        event ClientCommunicationEventHandler DisconnectClient;
 
         /// <summary>
         /// Occurs when the server is stopped.
         /// </summary>
-        event EventHandler? StopServer;
+        event EventHandler StopServer;
 
         /// <summary>
         /// Starts the server asynchronously, allowing it to accept client connections and handle data communication.

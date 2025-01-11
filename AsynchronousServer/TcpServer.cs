@@ -1,6 +1,7 @@
 ﻿using System.Collections.Concurrent;
 using System.Net;
 using System.Net.Sockets;
+using System.Reflection.Metadata;
 using AsynchronousServer.DataType;
 using AsynchronousServer.StaticMethod;
 using Standard.Static;
@@ -31,6 +32,7 @@ namespace AsynchronousServer
         public event StartServerEventHandler? Connected;
         public event EventHandler<ConnectedClient>? EnterClientCommunication;
         public event ClientCommunicationEventHandler? ReceiveData;
+        public event ClientCommunicationEventHandler? DisconnectClient;
         public event EventHandler? StopServer;
 
         public TcpServer (IPAddress ipAddress, int port, int timeout = Timeout.Infinite, int chunkSize = 65536)
@@ -95,11 +97,13 @@ namespace AsynchronousServer
                         receiveTask?.Dispose();
                         return;
                     }
-                    else if (completedTask == receiveTask && receiveTask.Result != null)
+                    else if (receiveTask.Result is null || receiveTask.Result.Length is 0)
                     {
-                        this.ReceiveData?.Invoke(this, new ClientCommunicationEventArgs(connectedClient, receiveTask.Result, string.Empty, cancellationTokenSource, connectedClients));
+                        this.DisconnectClient?.Invoke(this, new ClientCommunicationEventArgs(connectedClient, receiveTask.Result, string.Empty, cancellationTokenSource, connectedClients));
+                        return;
                     }
 
+                    this.ReceiveData?.Invoke(this, new ClientCommunicationEventArgs(connectedClient, receiveTask.Result, string.Empty, cancellationTokenSource, connectedClients));
                     disconnectionTask?.Dispose();
                 }
             }

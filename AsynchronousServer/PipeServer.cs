@@ -26,6 +26,7 @@ namespace AsynchronousServer
         public event StartServerEventHandler? Connected;
         public event EventHandler<ConnectedClient>? EnterClientCommunication;
         public event ClientCommunicationEventHandler? ReceiveData;
+        public event ClientCommunicationEventHandler? DisconnectClient;
         public event EventHandler? StopServer;
 
         public int ChunkSize => this._chunkSize;
@@ -100,11 +101,13 @@ namespace AsynchronousServer
                         receiveTask?.Dispose();
                         return;
                     }
-                    else if (completedTask == receiveTask && receiveTask.Result != null)
+                    else if (receiveTask.Result is null || receiveTask.Result.Length is 0)
                     {
-                        this.ReceiveData?.Invoke(this, new ClientCommunicationEventArgs(client, receiveTask.Result, pipeName, cancellationTokenSource, connectedClients));
+                        this.DisconnectClient?.Invoke(this, new ClientCommunicationEventArgs(client, receiveTask.Result ?? [], pipeName, cancellationTokenSource, connectedClients));
+                        return;
                     }
 
+                    this.ReceiveData?.Invoke(this, new ClientCommunicationEventArgs(client, receiveTask.Result, pipeName, cancellationTokenSource, connectedClients));
                     disconnectionTask?.Dispose();
                 }
             }

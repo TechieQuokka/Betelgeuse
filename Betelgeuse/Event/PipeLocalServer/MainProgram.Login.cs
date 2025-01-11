@@ -12,6 +12,7 @@ namespace Betelgeuse
         private static void InitializeLogin(IServer server)
         {
             server.EnterClientCommunication += IntegrateApplication_EventCallback;
+            server.DisconnectClient += Server_DisconnectClient;
             return;
         }
 
@@ -25,10 +26,10 @@ namespace Betelgeuse
             string commandString = "Integrate";
 
             var data = System.Text.Encoding.UTF8.GetBytes(Common.ToJson(string.Empty, commandString));
-            pipeServer.SendInChunks(client.MyStream, data);
+            pipeServer.SendInChunks(client.MyStream, data); // 1
 
             int timeout = 60 * 1000;
-            var buffer = pipeServer.ReceiveDataWithTimeout(stream, timeout, out var exception);
+            var buffer = pipeServer.ReceiveDataWithTimeout(stream, timeout, out var exception); // 4
             if (buffer is null || exception != null)
             {
                 var message = "Data reception timeout exceeded. Please check the network connection and try again.";
@@ -66,10 +67,17 @@ namespace Betelgeuse
             }
 
             // successful!!
-            identifier.Add(client.Id, authData.Name);
+            var result = identifier.Add(client.Id, authData.Name.ToLower());
+            if (result is false)
+            {
+                var message = "Failed to add client identifier. The username already exists. Please choose a different username.";
+                client.MyStream.SendDataWithLogging(pipeServer, client.Id, message, new System.Diagnostics.StackTrace(), Status.Error);
+                disconnect.ForceClientDisconnect(pipeServer, stream, client, timeout);
+                return;
+            }
             {
                 var message = "Client successfully authenticated and added to the identifier list.";
-                client.MyStream.SendDataWithLogging(pipeServer, client.Id, message, new System.Diagnostics.StackTrace(), Status.Successful);
+                client.MyStream.SendDataWithLogging(pipeServer, client.Id, message, new System.Diagnostics.StackTrace(), Status.Successful); // 5
             }
             return;
 
@@ -80,6 +88,14 @@ namespace Betelgeuse
                 server.Kill(clientId);
                 return;
             }
+        }
+
+        private static void Server_DisconnectClient(object sender, AsynchronousServer.DataType.ClientCommunicationEventArgs argument)
+        {
+            var identifier = _identifier;
+            identifier.Remove(argument.Client.Id);
+            Console.WriteLine($"Client {argument.Client.Id} has been disconnected.");
+            return;
         }
     }
 }

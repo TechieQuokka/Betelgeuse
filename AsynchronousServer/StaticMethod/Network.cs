@@ -32,7 +32,8 @@
             int byteRead = await stream.ReadAsync(dataSizeBuffer, 0, dataSizeBuffer.Length);
             if (byteRead != dataSizeBuffer.Length)
             {
-                throw new InvalidOperationException("Failed to read data size.");
+                // Failed to read data size.
+                return Array.Empty<byte>();
             }
             int dataSize = BitConverter.ToInt32(dataSizeBuffer, 0);
 
@@ -51,7 +52,8 @@
 
             if (totalBytesRead != dataSize)
             {
-                throw new InvalidOperationException("Failed to read the complete data.");
+                // Failed to read the complete data.
+                return Array.Empty<byte>();
             }
             return receivedData.ToArray();
         }

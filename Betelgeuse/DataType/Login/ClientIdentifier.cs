@@ -7,14 +7,34 @@ namespace Betelgeuse.DataType.Login
         private bool disposedValue;
 
         public ISet<string> Names { get; private set; } = new HashSet<string>();
-        public IDictionary<Guid, string> ClientNames { get; private set; } = new ConcurrentDictionary<Guid, string>();
+        public IDictionary<string, Guid> ClientNames { get; private set; } = new ConcurrentDictionary<string, Guid>();
 
         public bool Add (Guid clinetId, string pipeClientName)
         {
-            if (this.Names.Contains(pipeClientName) is false) return false;
+            if (string.IsNullOrWhiteSpace(pipeClientName)) return false;
+            if (this.Names.Contains(pipeClientName)) return false;
 
             this.Names.Add(pipeClientName);
-            this.ClientNames.Add(clinetId, pipeClientName);
+            this.ClientNames.Add(pipeClientName, clinetId);
+            return true;
+        }
+
+        public bool Remove (Guid clientId)
+        {
+            var pair = this.ClientNames.FirstOrDefault(element => element.Value == clientId);
+            if (string.IsNullOrWhiteSpace(pair.Key)) return false;
+
+            this.Names.Remove(pair.Key);
+            this.ClientNames.Remove(pair.Key);
+            return true;
+        }
+
+        public bool Remove (string name)
+        {
+            if (this.Names.Contains(name) is false) return false;
+
+            this.Names.Remove(name);
+            this.ClientNames.Remove(name);
             return true;
         }
 
