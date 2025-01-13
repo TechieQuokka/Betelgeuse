@@ -17,6 +17,7 @@ namespace Betelgeuse
 
         public static ILog Log { get => _log; }
 
+        // 2025.01.14
         public static async Task Main(string[] args)
         {
             IServer pipeServer = new PipeServer("BetelgeuseLocalServer", timeout: Timeout.Infinite);
