@@ -99,7 +99,7 @@ namespace AsynchronousServer
                     }
                     else if (receiveTask.Result is null || receiveTask.Result.Length is 0)
                     {
-                        this.DisconnectClient?.Invoke(this, new ClientCommunicationEventArgs(connectedClient, receiveTask.Result, string.Empty, cancellationTokenSource, connectedClients));
+                        this.DisconnectClient?.Invoke(this, new ClientCommunicationEventArgs(connectedClient, receiveTask.Result ?? [], string.Empty, cancellationTokenSource, connectedClients));
                         return;
                     }
 
