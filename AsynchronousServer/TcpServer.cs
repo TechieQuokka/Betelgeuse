@@ -86,7 +86,7 @@ namespace AsynchronousServer
             {
                 this.EnterClientCommunication?.Invoke(this, connectedClient);
 
-                while (client.Connected && connectedClients[connectedClient.Id].Cancellation.Token.IsCancellationRequested)
+                while (client.Connected && !connectedClients[connectedClient.Id].Cancellation.Token.IsCancellationRequested)
                 {
                     var receiveTask = connectedClient.MyStream.ReceiveInChunksAsync(chunkSize);
                     var disconnectionTask = this.WaitingForDisconnection(connectedClient.Cancellation, millisecondsDelay);
@@ -97,9 +97,9 @@ namespace AsynchronousServer
                         receiveTask?.Dispose();
                         return;
                     }
-                    else if (receiveTask.Result is null || receiveTask.Result.Length is 0)
+                    else if (receiveTask.Exception != null || receiveTask.Result is null || receiveTask.Result.Length is 0)
                     {
-                        this.DisconnectClient?.Invoke(this, new ClientCommunicationEventArgs(connectedClient, receiveTask.Result ?? [], string.Empty, cancellationTokenSource, connectedClients));
+                        this.DisconnectClient?.Invoke(this, new ClientCommunicationEventArgs(connectedClient, [], string.Empty, cancellationTokenSource, connectedClients));
                         return;
                     }
 
@@ -215,6 +215,7 @@ namespace AsynchronousServer
             this.Connected.UnsubscribeAllHandlers<StartServerEventHandler>((handler) => this.Connected -= handler);
             this.EnterClientCommunication.UnsubscribeAllHandlers<EventHandler<ConnectedClient>>((handler) => this.EnterClientCommunication -= handler);
             this.ReceiveData.UnsubscribeAllHandlers<ClientCommunicationEventHandler>((handler) => this.ReceiveData -= handler);
+            this.DisconnectClient.UnsubscribeAllHandlers<ClientCommunicationEventHandler>((header) => this.DisconnectClient -= header);
             this.StopServer.UnsubscribeAllHandlers<EventHandler>((handler) => this.StopServer -= handler);
             return;
         }

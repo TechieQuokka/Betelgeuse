@@ -20,6 +20,7 @@ namespace Betelgeuse
             pipeServer.DisconnectClient += Server_DisconnectClient;
 
             tcpServer.EnterClientCommunication += ConnectServer_EventCallback;
+            tcpServer.DisconnectClient += TcpServer_DisconnectClient;
             return;
         }
 
@@ -49,27 +50,33 @@ namespace Betelgeuse
                     return;
                 }
 
-                if (sql.IsLoginSuccessful(buffer, buffer.Length, out identity)) break;
+                if (sql.IsLoginSuccessful(buffer, buffer.Length, commandString, out identity)) break;
                 else stream.SendDataWithLogging(tcpServer, client.Id, $"Login failed: {client.Id}", new System.Diagnostics.StackTrace(), Status.Error);
             }
             if (count == maxAttempts)
             {
-                var message = "시도횟수를 초과하였습니다."; // to eng
+                var message = "You have exceeded the number of attempts.";
                 client.MyStream.SendDataWithLogging(tcpServer, client.Id, message, new System.Diagnostics.StackTrace(), Status.Error);
                 DisconnectAndTerminateClient(tcpServer, client.Id);
                 return;
             }
             else if (identityGroup.ContainsKey(identity))
             {
-                var message = "이미 로그인된 아이디입니다. 다시 시도해주세요."; // to eng
+                var message = "This account is already logged in. Please try again.";
                 client.MyStream.SendDataWithLogging(tcpServer, client.Id, message, new System.Diagnostics.StackTrace(), Status.Error);
                 DisconnectAndTerminateClient(tcpServer, client.Id);
                 return;
             }
+
+            // Successful
+            {
+                var message = "Server connection was successful.";
+                stream.SendDataWithLogging(tcpServer, client.Id, message, new System.Diagnostics.StackTrace(), Status.Successful);
+            }
             return;
         }
 
-        private static void IntegrateApplication_EventCallback(object? sender, AsynchronousServer.DataType.ConnectedClient client)
+        private static void IntegrateApplication_EventCallback(object? sender, ConnectedClient client)
         {
             var pipeServer = sender as IServer ?? throw new ArgumentNullException(nameof(sender));
             var disconnect = sender as ForceDisconnectServer ?? throw new ArgumentNullException(nameof(sender));
@@ -135,10 +142,16 @@ namespace Betelgeuse
             return;
         }
 
-        private static void Server_DisconnectClient(object sender, AsynchronousServer.DataType.ClientCommunicationEventArgs argument)
+        private static void Server_DisconnectClient(object sender, ClientCommunicationEventArgs argument)
         {
             var identifier = _identifier;
             identifier.Remove(argument.Client.Id);
+            Console.WriteLine($"Client {argument.Client.Id} has been disconnected.");
+            return;
+        }
+
+        private static void TcpServer_DisconnectClient(object sender, ClientCommunicationEventArgs argument)
+        {
             Console.WriteLine($"Client {argument.Client.Id} has been disconnected.");
             return;
         }

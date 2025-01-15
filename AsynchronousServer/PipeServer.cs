@@ -101,7 +101,7 @@ namespace AsynchronousServer
                         receiveTask?.Dispose();
                         return;
                     }
-                    else if (receiveTask.Result is null || receiveTask.Result.Length is 0)
+                    else if (receiveTask.Exception != null || receiveTask.Result is null || receiveTask.Result.Length is 0)
                     {
                         this.DisconnectClient?.Invoke(this, new ClientCommunicationEventArgs(client, receiveTask.Result ?? [], pipeName, cancellationTokenSource, connectedClients));
                         return;
@@ -217,6 +217,7 @@ namespace AsynchronousServer
             this.Connected?.UnsubscribeAllHandlers<StartServerEventHandler> ((handler) => this.Connected -= handler);
             this.EnterClientCommunication?.UnsubscribeAllHandlers<EventHandler<ConnectedClient>> ((handler) => this.EnterClientCommunication -= handler);
             this.ReceiveData?.UnsubscribeAllHandlers<ClientCommunicationEventHandler> ((handler) => this.ReceiveData -= handler);
+            this.DisconnectClient?.UnsubscribeAllHandlers<ClientCommunicationEventHandler> ((handler) => this.DisconnectClient -= handler);
             this.StopServer?.UnsubscribeAllHandlers<EventHandler> ((handler) => this.StopServer -= handler);
             return;
         }

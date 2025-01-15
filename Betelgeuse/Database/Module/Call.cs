@@ -72,7 +72,7 @@ namespace Betelgeuse.Database.Module
             return result;
         }
 
-        public static object? CallDBFunction(this MySqlConnection connection, string name, params object[] arguments)
+        public static object CallDBFunction(this MySqlConnection connection, string name, params object[] arguments)
         {
             if (connection == null) throw new ArgumentNullException(nameof(connection));
 
@@ -84,7 +84,7 @@ namespace Betelgeuse.Database.Module
                     command.Parameters.AddWithValue($"@item{index}", arguments[index]);
                 }
 
-                var result = command.ExecuteScalar();
+                object result = command.ExecuteScalar();
                 return result;
             }
         }
