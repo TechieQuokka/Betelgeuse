@@ -24,7 +24,6 @@ namespace Betelgeuse
             return;
         }
 
-        // TODO: 구현 미흡
         private static void ConnectServer_EventCallback(object? sender, ConnectedClient client)
         {
             var tcpServer = sender as IServer ?? throw new ArgumentNullException(nameof(sender));
@@ -44,9 +43,8 @@ namespace Betelgeuse
                 var buffer = tcpServer.ReceiveDataWithTimeout(stream, timeout, out var exception);
                 if (buffer is null || exception != null)
                 {
-                    var message = "Data reception timeout exceeded. Please check the network connection and try again.";
-                    client.MyStream.SendDataWithLogging(tcpServer, client.Id, message, new System.Diagnostics.StackTrace(), Status.Error);
-                    DisconnectAndTerminateClient(tcpServer, client.Id);
+                    client.MyStream.SendDataWithLogging(tcpServer, client.Id, exception?.Message ?? "The buffer is null.", new System.Diagnostics.StackTrace(), Status.Error, !(exception is IOException));
+                    tcpServer.Disconnect(client.Id);
                     return;
                 }
 

@@ -8,15 +8,14 @@ namespace Betelgeuse.Extension
 {
     public static class Network
     {
-        public static void SendDataWithLogging (this Stream stream, IServer server, Guid clientId, string message, StackTrace stackTrace, Status status = Status.None)
+        public static void SendDataWithLogging (this Stream stream, IServer server, Guid clientId, string message, StackTrace stackTrace, Status status = Status.None, bool sendToClient = true)
         {
-            ILog log = MainProgram.Log;
-
             if (stream is null) throw new ArgumentNullException(nameof(stream));
             if (stackTrace is null) throw new ArgumentNullException(nameof(stackTrace));
 
+            ILog log = MainProgram.Log;
             var data = System.Text.Encoding.UTF8.GetBytes(Common.ToJson(message, status.ToString()));
-            server.SendInChunks(stream, data);
+            if (sendToClient) server.SendInChunks(stream, data);
 
             var logMessage = string.Format("{0} {1} - {2}:{3}", DateTime.Now.ToString("g"), clientId, status, message);
             Console.WriteLine(logMessage);

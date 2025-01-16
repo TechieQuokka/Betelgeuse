@@ -21,6 +21,7 @@ namespace AsynchronousServer
         private bool disposedValue;
         private byte[] _buffer;
         private string _shutdownString = "SHUTDOWN";
+        private object _lockObject = new object();
 
         public event EventHandler? Enter;
         public event StartServerEventHandler? Connected;
@@ -129,33 +130,42 @@ namespace AsynchronousServer
 
         public bool Disconnect(Guid clientId)
         {
-            var clients = this._connectedClients;
-            if (clients.ContainsKey(clientId) is false) return false;
+            lock (this._lockObject)
+            {
+                var clients = this._connectedClients;
+                if (clients.ContainsKey(clientId) is false) return false;
 
-            clients[clientId].Cancellation.Cancel();
-            return true;
+                clients[clientId].Cancellation.Cancel();
+                return true;
+            }
         }
 
         public bool Kill (Guid clientId)
         {
-            var tasks = this._tasks;
-            if (tasks.ContainsKey(clientId) is false) return false;
+            lock (this._lockObject)
+            {
+                var tasks = this._tasks;
+                if (tasks.ContainsKey(clientId) is false) return false;
 
-            var task = tasks[clientId];
-            bool result = task.Interrupt();
-            task.Task?.Wait();
+                var task = tasks[clientId];
+                bool result = task.Interrupt();
+                task.Task?.Wait(this._timeout);
 
-            return result && tasks.Remove(clientId);
+                return result && tasks.Remove(clientId);
+            }
         }
 
         public void Stop()
         {
-            var tasks = this._tasks;
-            foreach (var task in tasks)
+            lock (this._lockObject)
             {
-                task.Value.Interrupt();
+                var tasks = this._tasks;
+                foreach (var task in tasks)
+                {
+                    task.Value.Interrupt();
+                }
+                tasks.Clear();
             }
-            tasks.Clear();
 
             this.StopServer?.Invoke(this, new EventArgs());
             this._cancellationTokenSource.Cancel();
