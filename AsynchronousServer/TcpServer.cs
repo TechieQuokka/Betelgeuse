@@ -28,7 +28,6 @@ namespace AsynchronousServer
 
         protected override string ShutdownString { get => this._shutdownString; set => this._shutdownString = value; }
 
-
         public event EventHandler? Enter;
         public event StartServerEventHandler? Connected;
         public event EventHandler<ConnectedClient>? EnterClientCommunication;
