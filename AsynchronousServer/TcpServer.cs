@@ -1,14 +1,13 @@
 ﻿using System.Collections.Concurrent;
 using System.Net;
 using System.Net.Sockets;
-using System.Reflection.Metadata;
 using AsynchronousServer.DataType;
 using AsynchronousServer.StaticMethod;
 using Standard.Static;
 
 namespace AsynchronousServer
 {
-    public class TcpServer : ForceDisconnectServer, IServer
+    public class TcpServer : IServer
     {
         private readonly CancellationTokenSource _cancellationTokenSource;
         private readonly IDictionary<Guid, ConnectedClient> _connectedClients;
@@ -19,14 +18,11 @@ namespace AsynchronousServer
         private readonly int _timeout;
         private byte[] _buffer;
         private bool disposedValue;
-        private string _shutdownString = "SHUTDOWN";
         private object _lockObject = new object();
 
         int IServer.ConnectedClientCount => this._connectedClients.Count;
         IDictionary<Guid, ConnectedClient> IServer.ConnectedClients { get => this._connectedClients; }
         public int ChunkSize => this._chunkSize;
-
-        protected override string ShutdownString { get => this._shutdownString; set => this._shutdownString = value; }
 
         public event EventHandler? Enter;
         public event StartServerEventHandler? Connected;
@@ -66,13 +62,17 @@ namespace AsynchronousServer
 
                     var tasks = this._tasks;
                     tasks.Add(clientId, new TaskThreadPair());
-                    tasks[clientId].Task = HandleClientCommunicationAsync(client, connectedClient, this._connectedClients, tasks, this._cancellationTokenSource, this._chunkSize, this._timeout).ContinueWith(task =>
+                    tasks[clientId].Task = Task.Factory.StartNew(async () =>
                     {
-                        if (task.Exception != null)
+                        await HandleClientCommunicationAsync(client, connectedClient, this._connectedClients, tasks, this._cancellationTokenSource, this._chunkSize, this._timeout)
+                        .ContinueWith(task =>
                         {
-                            Console.WriteLine($"Client communication error: {task.Exception.InnerException?.Message}");
-                        }
-                    }, TaskContinuationOptions.OnlyOnRanToCompletion);
+                            if (task.Exception != null)
+                            {
+                                Console.WriteLine($"Client communication error: {task.Exception.InnerException?.Message}");
+                            }
+                        }, TaskContinuationOptions.OnlyOnRanToCompletion);
+                    }, TaskCreationOptions.LongRunning);
                 }
 
                 server.Stop();

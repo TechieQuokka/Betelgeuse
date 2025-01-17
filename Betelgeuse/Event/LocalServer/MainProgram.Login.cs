@@ -18,9 +18,19 @@ namespace Betelgeuse
         {
             pipeServer.EnterClientCommunication += IntegrateApplication_EventCallback;
             pipeServer.DisconnectClient += Server_DisconnectClient;
+            pipeServer.Connected += Initialize_EventCallback;
 
             tcpServer.EnterClientCommunication += ConnectServer_EventCallback;
             tcpServer.DisconnectClient += TcpServer_DisconnectClient;
+            tcpServer.Connected += Initialize_EventCallback;
+            return;
+        }
+
+        private static void Initialize_EventCallback(object sender, StartServerEventArgs argument)
+        {
+            var stream = argument.MyStream;
+            stream.ReadTimeout = 60 * 1000;
+            stream.WriteTimeout = 60 * 1000;
             return;
         }
 
@@ -34,23 +44,26 @@ namespace Betelgeuse
             string commandString = "RequestLogin", identity = string.Empty;
 
             int count = 0, maxAttempts = 3;
-            for (count = 0; count < maxAttempts; count++)
+            try
             {
-                var data = System.Text.Encoding.UTF8.GetBytes(Common.ToJson(string.Empty, commandString));
-                tcpServer.SendInChunks(stream, data);
-
-                int timeout = 60 * 1000;
-                var buffer = tcpServer.ReceiveDataWithTimeout(stream, timeout, out var exception);
-                if (buffer is null || exception != null)
+                for (count = 0; count < maxAttempts; count++)
                 {
-                    client.MyStream.SendDataWithLogging(tcpServer, client.Id, exception?.Message ?? "The buffer is null.", new System.Diagnostics.StackTrace(), Status.Error, !(exception is IOException));
-                    tcpServer.Disconnect(client.Id);
-                    return;
-                }
+                    var data = System.Text.Encoding.UTF8.GetBytes(Common.ToJson(string.Empty, commandString));
+                    tcpServer.SendInChunks(stream, data);
 
-                if (sql.IsLoginSuccessful(buffer, buffer.Length, commandString, out identity)) break;
-                else stream.SendDataWithLogging(tcpServer, client.Id, $"Login failed: {client.Id}", new System.Diagnostics.StackTrace(), Status.Error);
+                    var buffer = tcpServer.ReceiveInChunks(stream);
+
+                    if (sql.IsLoginSuccessful(buffer, buffer.Length, commandString, out identity)) break;
+                    else stream.SendDataWithLogging(tcpServer, client.Id, $"Login failed: {client.Id}", new System.Diagnostics.StackTrace(), Status.Error);
+                }
             }
+            catch (IOException exception)
+            {
+                client.MyStream.SendDataWithLogging(tcpServer, client.Id, exception.Message, new System.Diagnostics.StackTrace(), Status.Error, false);
+                DisconnectAndTerminateClient(tcpServer, client.Id);
+                return;
+            }
+
             if (count == maxAttempts)
             {
                 var message = "You have exceeded the number of attempts.";
@@ -58,7 +71,7 @@ namespace Betelgeuse
                 DisconnectAndTerminateClient(tcpServer, client.Id);
                 return;
             }
-            else if (identityGroup.ContainsKey(identity))
+            if (identityGroup.ContainsKey(identity))
             {
                 var message = "This account is already logged in. Please try again.";
                 client.MyStream.SendDataWithLogging(tcpServer, client.Id, message, new System.Diagnostics.StackTrace(), Status.Error);
@@ -68,6 +81,8 @@ namespace Betelgeuse
 
             // Successful
             {
+                identityGroup.Add(identity, client.Id);
+
                 var message = "Server connection was successful.";
                 stream.SendDataWithLogging(tcpServer, client.Id, message, new System.Diagnostics.StackTrace(), Status.Successful);
             }
@@ -77,7 +92,6 @@ namespace Betelgeuse
         private static void IntegrateApplication_EventCallback(object? sender, ConnectedClient client)
         {
             var pipeServer = sender as IServer ?? throw new ArgumentNullException(nameof(sender));
-            var disconnect = sender as ForceDisconnectServer ?? throw new ArgumentNullException(nameof(sender));
             var stream = client.MyStream;
             var identifier = _identifier;
 
@@ -86,9 +100,12 @@ namespace Betelgeuse
             var data = System.Text.Encoding.UTF8.GetBytes(Common.ToJson(string.Empty, commandString));
             pipeServer.SendInChunks(stream, data); // 1
 
-            int timeout = 60 * 1000;
-            var buffer = pipeServer.ReceiveDataWithTimeout(stream, timeout, out var exception); // 4
-            if (buffer is null || exception != null)
+            byte[] buffer = [];
+            try
+            {
+                buffer = pipeServer.ReceiveInChunks(stream);
+            }
+            catch (IOException)
             {
                 var message = "Data reception timeout exceeded. Please check the network connection and try again.";
                 stream.SendDataWithLogging(pipeServer, client.Id, message, new System.Diagnostics.StackTrace(), Status.Error);
@@ -120,7 +137,7 @@ namespace Betelgeuse
             {
                 var message = "Failed to decrypt the authentication key. The received data may be corrupted or incorrect. Please try again.";
                 stream.SendDataWithLogging(pipeServer, client.Id, message, new System.Diagnostics.StackTrace(), Status.Error);
-                disconnect.ForceClientDisconnect(pipeServer, stream, client, timeout);
+                DisconnectAndTerminateClient(pipeServer, client.Id);
                 return;
             }
 
@@ -130,7 +147,7 @@ namespace Betelgeuse
             {
                 var message = "Failed to add client identifier. The username already exists. Please choose a different username.";
                 stream.SendDataWithLogging(pipeServer, client.Id, message, new System.Diagnostics.StackTrace(), Status.Error);
-                disconnect.ForceClientDisconnect(pipeServer, stream, client, timeout);
+                DisconnectAndTerminateClient(pipeServer, client.Id);
                 return;
             }
             {
@@ -150,6 +167,9 @@ namespace Betelgeuse
 
         private static void TcpServer_DisconnectClient(object sender, ClientCommunicationEventArgs argument)
         {
+            var identityGroup = _identityGroup;
+            var data = identityGroup.FirstOrDefault(element => element.Value == argument.Client.Id);
+            if (identityGroup.ContainsKey(data.Key)) identityGroup.Remove(data.Key);
             Console.WriteLine($"Client {argument.Client.Id} has been disconnected.");
             return;
         }

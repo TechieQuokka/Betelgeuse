@@ -9,7 +9,7 @@ namespace AsynchronousServer
     public delegate void StartServerEventHandler(object sender, StartServerEventArgs argument);
     public delegate void ClientCommunicationEventHandler(object sender, ClientCommunicationEventArgs argument);
 
-    public class PipeServer : ForceDisconnectServer, IServer
+    public class PipeServer : IServer
     {
         private readonly string _pipeName;
         private readonly CancellationTokenSource _cancellationTokenSource;
@@ -20,7 +20,6 @@ namespace AsynchronousServer
         private readonly int _timeout;
         private bool disposedValue;
         private byte[] _buffer;
-        private string _shutdownString = "SHUTDOWN";
         private object _lockObject = new object();
 
         public event EventHandler? Enter;
@@ -34,7 +33,6 @@ namespace AsynchronousServer
 
         int IServer.ConnectedClientCount { get => this._connectedClients.Count; }
         IDictionary<Guid, ConnectedClient> IServer.ConnectedClients { get => this._connectedClients; }
-        protected override string ShutdownString { get => this._shutdownString; set => this._shutdownString = value; }
 
         public PipeServer (string pipeName, int maxNumberOfServerInstances = 10, int timeout = Timeout.Infinite, int chunkSize = 65536)
         {
