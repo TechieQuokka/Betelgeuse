@@ -132,9 +132,15 @@ namespace AsynchronousServer
                 try { await task; }
                 catch (TaskCanceledException)
                 {
-                    if (task.Status == TaskStatus.RanToCompletion || task.Status == TaskStatus.Faulted || task.Status == TaskStatus.Canceled)
+                    switch (task.Status)
                     {
-                        task.Dispose();
+                        case TaskStatus.Canceled:
+                        case TaskStatus.Faulted:
+                        case TaskStatus.RanToCompletion:
+                            task.Dispose();
+                            break;
+                        default:
+                            break;
                     }
                 }
             }
