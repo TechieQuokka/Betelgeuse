@@ -91,7 +91,7 @@ namespace AsynchronousServer
                 var stream = client.MyStream as NamedPipeServerStream ?? throw new ArgumentNullException(nameof(client.MyStream));
                 while (stream.IsConnected && !client.Cancellation.Token.IsCancellationRequested)
                 {
-                    var receiveTask = client.MyStream.ReceiveInChunksAsync(chunkSize);
+                    var receiveTask = client.MyStream.ReceiveInChunksAsync(chunkSize, new CancellationTokenSource());
                     var disconnectionTask = this.WaitingForDisconnection(client.Cancellation, millisecondsDelay);
 
                     var completedTask = await Task.WhenAny(receiveTask, disconnectionTask);
@@ -103,6 +103,7 @@ namespace AsynchronousServer
                     else if (receiveTask.Exception != null || receiveTask.Result is null || receiveTask.Result.Length is 0)
                     {
                         this.DisconnectClient?.Invoke(this, new ClientCommunicationEventArgs(client, receiveTask.Result ?? [], pipeName, cancellationTokenSource, connectedClients));
+                        disconnectionTask?.Dispose();
                         return;
                     }
 

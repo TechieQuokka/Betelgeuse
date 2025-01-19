@@ -88,23 +88,32 @@ namespace AsynchronousServer
 
                 while (client.Connected && !connectedClients[connectedClient.Id].Cancellation.Token.IsCancellationRequested)
                 {
-                    var receiveTask = connectedClient.MyStream.ReceiveInChunksAsync(chunkSize);
-                    var disconnectionTask = this.WaitingForDisconnection(connectedClient.Cancellation, millisecondsDelay);
+                    var receiveTokenSource = new CancellationTokenSource();
+                    var disconnectionTokenSource = new CancellationTokenSource();
+                    var receiveTask = connectedClient.MyStream.ReceiveInChunksAsync(chunkSize, receiveTokenSource);
+                    var disconnectionTask = Task.Delay(millisecondsDelay, disconnectionTokenSource.Token);
 
                     var completedTask = await Task.WhenAny(receiveTask, disconnectionTask);
                     if (completedTask == disconnectionTask)
                     {
-                        receiveTask?.Dispose();
+                        disconnectionTask.Dispose();
+                        receiveTokenSource.Cancel();
+                        await ForceTask(receiveTask);
                         return;
                     }
                     else if (receiveTask.Exception != null || receiveTask.Result is null || receiveTask.Result.Length is 0)
                     {
                         this.DisconnectClient?.Invoke(this, new ClientCommunicationEventArgs(connectedClient, [], string.Empty, cancellationTokenSource, connectedClients));
+                        receiveTask.Dispose();
+                        disconnectionTokenSource.Cancel();
+                        await ForceTask(disconnectionTask);
                         return;
                     }
 
                     this.ReceiveData?.Invoke(this, new ClientCommunicationEventArgs(connectedClient, receiveTask.Result, string.Empty, cancellationTokenSource, connectedClients));
-                    disconnectionTask?.Dispose();
+                    receiveTask.Dispose();
+                    disconnectionTokenSource.Cancel();
+                    await ForceTask(disconnectionTask);
                 }
             }
             finally
@@ -118,12 +127,17 @@ namespace AsynchronousServer
                 client.Dispose();
             }
             return;
-        }
-
-        private async Task WaitingForDisconnection(CancellationTokenSource cancellation, int millisecondsDelay)
-        {
-            await Task.Delay(millisecondsDelay, cancellation.Token);
-            return;
+            async Task ForceTask(Task task)
+            {
+                try { await task; }
+                catch (TaskCanceledException)
+                {
+                    if (task.Status == TaskStatus.RanToCompletion || task.Status == TaskStatus.Faulted || task.Status == TaskStatus.Canceled)
+                    {
+                        task.Dispose();
+                    }
+                }
+            }
         }
 
         public bool Disconnect(Guid clientId)

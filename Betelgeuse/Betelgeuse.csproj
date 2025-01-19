@@ -28,4 +28,8 @@
     <ProjectReference Include="..\Standard\Standard.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Event\Pipe\" />
+  </ItemGroup>
+
 </Project>

@@ -10,7 +10,7 @@ using Standard.Static;
 
 namespace Betelgeuse
 {
-    public partial class MainProgram
+    internal partial class MainProgram
     {
         private static IDictionary<string, Guid> _identityGroup = new ConcurrentDictionary<string, Guid>();
 

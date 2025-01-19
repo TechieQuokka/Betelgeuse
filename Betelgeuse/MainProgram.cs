@@ -8,7 +8,7 @@ using MySql.Data.MySqlClient;
 
 namespace Betelgeuse
 {
-    public partial class MainProgram
+    internal partial class MainProgram
     {
         private static readonly MySqlConnection _sqlConnection = new MySqlConnection(DatabaseVariable.connectionString);
         private static readonly Security.IAdvancedEncryptionStandard AES = new Security.AdvancedEncryptionStandard(PrivateKey.aesKey);
@@ -23,11 +23,12 @@ namespace Betelgeuse
             IServer tcpServer = new TcpServer(IPAddress.Any, 32983);
 
             InitializeLogin(pipeServer, tcpServer);
+            InitializeTCPCommunication(tcpServer);
 
             var connection = _sqlConnection ?? throw new ArgumentNullException(nameof(_sqlConnection));
 
-            pipeServer.Enter += (_, _) => Console.WriteLine("The server1 has started!");
-            tcpServer.Enter += (_, _) => Console.WriteLine("The server2 has started!");
+            pipeServer.Enter += (_, _) => Console.WriteLine("The Pipe server has started!");
+            tcpServer.Enter += (_, _) => Console.WriteLine("The Tcp Server has started!");
             try
             {
                 var log = Log ?? throw new ArgumentNullException(nameof(Log));

@@ -23,13 +23,13 @@
             return;
         }
 
-        public async static Task<byte[]> ReceiveInChunksAsync(this Stream stream, int chunkSize)
+        public async static Task<byte[]> ReceiveInChunksAsync(this Stream stream, int chunkSize, CancellationTokenSource cancel)
         {
             ArgumentNullException.ThrowIfNull(stream);
 
             // Read data size
             var dataSizeBuffer = new byte[sizeof(int)];
-            int byteRead = await stream.ReadAsync(dataSizeBuffer, 0, dataSizeBuffer.Length);
+            int byteRead = await stream.ReadAsync(dataSizeBuffer, 0, dataSizeBuffer.Length, cancel.Token);
             if (byteRead != dataSizeBuffer.Length)
             {
                 // Failed to read data size.
@@ -44,7 +44,7 @@
             int bytesRead = 0;
             int totalBytesRead = 0;
 
-            while (totalBytesRead < dataSize && (bytesRead = await stream.ReadAsync(buffer, 0, chunkSize)) > 0)
+            while (totalBytesRead < dataSize && (bytesRead = await stream.ReadAsync(buffer, 0, chunkSize, cancel.Token)) > 0)
             {
                 receivedData.AddRange(buffer.Take(bytesRead));
                 totalBytesRead += bytesRead;
