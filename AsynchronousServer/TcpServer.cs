@@ -99,14 +99,15 @@ namespace AsynchronousServer
                         disconnectionTask.Dispose();
                         receiveTokenSource.Cancel();
                         await ForceTask(receiveTask);
+                        this.DisconnectClient?.Invoke(this, new ClientCommunicationEventArgs(connectedClient, [255]/*error code*/, string.Empty, cancellationTokenSource, connectedClients));
                         return;
                     }
                     else if (receiveTask.Exception != null || receiveTask.Result is null || receiveTask.Result.Length is 0)
                     {
-                        this.DisconnectClient?.Invoke(this, new ClientCommunicationEventArgs(connectedClient, [], string.Empty, cancellationTokenSource, connectedClients));
                         receiveTask.Dispose();
                         disconnectionTokenSource.Cancel();
                         await ForceTask(disconnectionTask);
+                        this.DisconnectClient?.Invoke(this, new ClientCommunicationEventArgs(connectedClient, [254]/*error code*/, string.Empty, cancellationTokenSource, connectedClients));
                         return;
                     }
 
@@ -130,18 +131,12 @@ namespace AsynchronousServer
             async Task ForceTask(Task task)
             {
                 try { await task; }
-                catch (TaskCanceledException)
+                catch (OperationCanceledException)
+                    when (task.Status == TaskStatus.Canceled
+                       || task.Status == TaskStatus.Faulted
+                       || task.Status == TaskStatus.RanToCompletion)
                 {
-                    switch (task.Status)
-                    {
-                        case TaskStatus.Canceled:
-                        case TaskStatus.Faulted:
-                        case TaskStatus.RanToCompletion:
-                            task.Dispose();
-                            break;
-                        default:
-                            break;
-                    }
+                    task.Dispose();
                 }
             }
         }

@@ -20,7 +20,7 @@ namespace Betelgeuse
         internal static async Task Main(string[] args)
         {
             IServer pipeServer = new PipeServer("BetelgeuseLocalServer", timeout: Timeout.Infinite);
-            IServer tcpServer = new TcpServer(IPAddress.Any, 32983);
+            IServer tcpServer = new TcpServer(IPAddress.Any, 32983, timeout: 3 * 1000);
 
             InitializeLogin(pipeServer, tcpServer);
             InitializeTCPCommunication(tcpServer);
